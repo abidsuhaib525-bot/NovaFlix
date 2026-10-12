@@ -1,0 +1,28 @@
+# ── Windows GNU toolchain ────────────────────────────────────────────────
+# rustup's `windows-gnu` toolchain can link pure Rust on its own, but two
+# dependencies need a C toolchain: `ring` (the TLS backend behind rustls) and
+# `mimalloc`. Those are satisfied by w64devkit — a portable MinGW-w64 GCC that
+# ships gcc/binutils/make in one archive. `scripts/setup-toolchain.ps1` fetches
+# it and puts it on PATH.
+#
+# `linker = "gcc"` rather than rustc's bundled rust-lld because once C objects
+# are in the link, the MinGW CRT, libgcc and its unwinder have to be located
+# too. The gcc driver knows where they are; rust-lld does not.
+[target.x86_64-pc-windows-gnu]
+linker = "gcc"
+ar = "ar"
+
+[env]
+CC_x86_64_pc_windows_gnu = { value = "gcc", relative = false }
+AR_x86_64_pc_windows_gnu = { value = "ar", relative = false }
+RC_x86_64_pc_windows_gnu = { value = "windres", relative = false }
+
+# ── Static-ish Windows builds ─────────────────────────────────────────────
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-unknown-linux-musl]
+rustflags = ["-C", "link-arg=-Wl,-z,max-page-size=65536"]

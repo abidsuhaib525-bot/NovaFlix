@@ -1,0 +1,496 @@
+@import 'tailwindcss';
+
+/* ============================================================================
+   MOVIEBOX DESIGN SYSTEM
+   Cinematic, dark-first. Every colour is a CSS variable so all themes swap
+   instantly without a reload. Ported from the TUI's 9 palettes (theme.rs).
+   ========================================================================== */
+
+@theme {
+  --font-sans: 'Plus Jakarta Sans', 'Outfit', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Outfit', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+
+  --radius-card: 1rem;
+
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-in: fade-in 0.3s ease-out both;
+  --animate-scale-in: scale-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  --animate-spin-slow: spin 1.1s linear infinite;
+
+  /* `shadow-accent` has no Tailwind default to fall back on, unlike
+     `shadow-sm`/`-md`/`-lg`, so it has to be declared to exist at all. */
+  --shadow-accent: 0 10px 34px -12px rgba(232, 180, 74, 0.5);
+  --shadow-glow: 0 0 25px -4px rgba(232, 180, 74, 0.35);
+}
+
+/* ---------------------------------------------------------------------------
+   SEMANTIC COLOR UTILITIES
+   Tailwind only emits `text-fg-default`, `bg-accent`, `border-border-strong`
+   and the rest if a `--color-*` token backs them -- and the palettes below
+   declare `--fg-default`, `--accent`, ... with no `--color-` prefix. Every one
+   of those classes was therefore dropped from the stylesheet: ~400 usages
+   across the app rendered on inherited defaults, with transparent backgrounds
+   and no borders, which is why the site looked unthemed however the tokens
+   were tuned.
+
+   `inline` matters here: it makes each utility resolve `var(--fg-default)` at
+   the element, so a palette swap repaints everything without a rebuild. The
+   non-inline form would bake the indirection into `:root` instead, tying the
+   whole document to wherever the theme attribute happens to sit.
+   ------------------------------------------------------------------------- */
+@theme inline {
+  --color-bg-base: var(--bg-base);
+  --color-bg-sunken: var(--bg-sunken);
+  --color-bg-surface: var(--bg-surface);
+  --color-bg-raised: var(--bg-raised);
+  --color-bg-overlay: var(--bg-overlay);
+  --color-bg-hover: var(--bg-hover);
+
+  --color-fg-default: var(--fg-default);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-fg-inverted: var(--fg-inverted);
+
+  --color-border-subtle: var(--border-subtle);
+  --color-border-default: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-contrast: var(--accent-contrast);
+
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position: 200% 0; }
+}
+
+/* ---------------------------------------------------------------------------
+   THEME TOKENS
+   Each theme overrides the same variable set. Default = "noir".
+   ------------------------------------------------------------------------- */
+:root,
+[data-theme='cinema-red'] {
+  --bg-base:    #07070a;
+  --bg-sunken:   #040406;
+  --bg-surface:  #101017;
+  --bg-raised:   #181822;
+  --bg-overlay:  #20202d;
+  --bg-hover:    #262636;
+
+  --border-subtle: rgba(255, 255, 255, 0.07);
+  --border-default:rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.22);
+
+  --fg-default: #f3f3f7;
+  --fg-muted:   #a3a3b8;
+  --fg-subtle:  #6e6e85;
+  --fg-inverted:#07070a;
+
+  --accent:        #e50914;
+  --accent-hover:  #ff1f2d;
+  --accent-muted:  #5c0d12;
+  --accent-subtle: rgba(229, 9, 20, 0.16);
+  --accent-contrast:#ffffff;
+
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger:  #ef4444;
+  --info:    #3b82f6;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 8px 24px -4px rgba(0, 0, 0, 0.8);
+  --shadow-lg: 0 24px 60px -12px rgba(0, 0, 0, 0.95);
+  --shadow-accent: 0 10px 35px -8px rgba(229, 9, 20, 0.55);
+}
+
+[data-theme='cyber-gold'] {
+  --bg-base:    #07080c;
+  --bg-sunken:   #040407;
+  --bg-surface:  #0f121a;
+  --bg-raised:   #171b26;
+  --bg-overlay:  #1e2332;
+  --bg-hover:    #262d40;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-default:rgba(255, 255, 255, 0.13);
+  --border-strong: rgba(255, 255, 255, 0.24);
+
+  --fg-default: #f5f6fa;
+  --fg-muted:   #9ca3af;
+  --fg-subtle:  #6b7280;
+  --fg-inverted:#07080c;
+
+  --accent:        #ffb703;
+  --accent-hover:  #ffc83b;
+  --accent-muted:  #5c4100;
+  --accent-subtle: rgba(255, 183, 3, 0.15);
+  --accent-contrast:#000000;
+
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger:  #ef4444;
+  --info:    #38bdf8;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 8px 24px -4px rgba(0, 0, 0, 0.8);
+  --shadow-lg: 0 24px 60px -12px rgba(0, 0, 0, 0.95);
+  --shadow-accent: 0 10px 35px -8px rgba(255, 183, 3, 0.5);
+}
+
+[data-theme='hbo-purple'] {
+  --bg-base:    #08060f;
+  --bg-sunken:   #040308;
+  --bg-surface:  #131021;
+  --bg-raised:   #1c1730;
+  --bg-overlay:  #251f40;
+  --bg-hover:    #302852;
+
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-default:rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.25);
+
+  --fg-default: #f5f3ff;
+  --fg-muted:   #a78bfa;
+  --fg-subtle:  #7c6ea6;
+  --fg-inverted:#08060f;
+
+  --accent:        #a855f7;
+  --accent-hover:  #c084fc;
+  --accent-muted:  #4a1d7a;
+  --accent-subtle: rgba(168, 85, 247, 0.18);
+  --accent-contrast:#ffffff;
+
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger:  #ef4444;
+  --info:    #818cf8;
+
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.6);
+  --shadow-md: 0 8px 24px -4px rgba(0, 0, 0, 0.8);
+  --shadow-lg: 0 24px 60px -12px rgba(0, 0, 0, 0.95);
+  --shadow-accent: 0 10px 35px -8px rgba(168, 85, 247, 0.55);
+}
+
+[data-theme='noir'] {
+  --bg-base:    #08080b;
+  --bg-sunken:   #050507;
+  --bg-surface:  #101017;
+  --bg-raised:   #17171f;
+  --bg-overlay:  #1c1c26;
+  --bg-hover:    #20202b;
+
+  --border-subtle: #23232e;
+  --border-default:#2e2e3c;
+  --border-strong: #3d3d50;
+
+  --fg-default: #ececf1;
+  --fg-muted:   #9c9cb0;
+  --fg-subtle:  #6b6b80;
+  --fg-inverted:#08080b;
+
+  --accent:        #e8b44a;
+  --accent-hover:  #f5c860;
+  --accent-muted:  #4a3a1a;
+  --accent-subtle: rgba(232, 180, 74, 0.12);
+  --accent-contrast:#1a1408;
+
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --danger:  #f87171;
+  --info:    #60a5fa;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 6px 20px -6px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 20px 50px -18px rgba(0, 0, 0, 0.85);
+  --shadow-accent: 0 10px 34px -12px rgba(232, 180, 74, 0.5);
+}
+
+[data-theme='catppuccin'] {
+  --bg-base: #1e1e2e;      --bg-sunken: #181825;   --bg-surface: #242436;
+  --bg-raised: #313244;    --bg-overlay: #313244;  --bg-hover: #3b3b4d;
+  --border-subtle: #313244; --border-default: #45475a; --border-strong: #585b70;
+  --fg-default: #cdd6f4;   --fg-muted: #a6adc8;     --fg-subtle: #7f849c;
+  --fg-inverted: #1e1e2e;
+  --accent: #f5c2e7;        --accent-hover: #f5c2e7;  --accent-muted: #45475a;
+  --accent-subtle: rgba(245, 194, 231, 0.14);
+  --accent-contrast: #1e1e2e;
+  --success: #a6e3a1; --warning: #f9e2af; --danger: #f38ba8; --info: #89b4fa;
+}
+[data-theme='tokyonight'] {
+  --bg-base: #1a1b26;      --bg-sunken: #16161e;   --bg-surface: #1f2335;
+  --bg-raised: #292e42;    --bg-overlay: #2f344c;  --bg-hover: #363c56;
+  --border-subtle: #292e42; --border-default: #3b4261; --border-strong: #4d5578;
+  --fg-default: #c0caf5;   --fg-muted: #9aa5ce;     --fg-subtle: #737da4;
+  --fg-inverted: #1a1b26;
+  --accent: #7aa2f7;        --accent-hover: #93b4ff;  --accent-muted: #3d59a1;
+  --accent-subtle: rgba(122, 162, 247, 0.14);
+  --accent-contrast: #1a1b26;
+  --success: #9ece6a; --warning: #e0af68; --danger: #f7768e; --info: #7dcfff;
+}
+[data-theme='nord'] {
+  --bg-base: #2e3440;      --bg-sunken: #272c36;   --bg-surface: #3b4252;
+  --bg-raised: #434c5e;    --bg-overlay: #4c566a;  --bg-hover: #566274;
+  --border-subtle: #434c5e; --border-default: #4c566a; --border-strong: #616e88;
+  --fg-default: #eceff4;   --fg-muted: #d8dee9;     --fg-subtle: #a9b1c1;
+  --fg-inverted: #2e3440;
+  --accent: #88c0d0;        --accent-hover: #8fbcce;  --accent-muted: #4c566a;
+  --accent-subtle: rgba(136, 192, 208, 0.14);
+  --accent-contrast: #2e3440;
+  --success: #a3be8c; --warning: #ebcb8b; --danger: #bf616a; --info: #81a1c1;
+}
+[data-theme='dracula'] {
+  --bg-base: #282a36;      --bg-sunken: #21222c;   --bg-surface: #343746;
+  --bg-raised: #44475a;    --bg-overlay: #44475a;  --bg-hover: #50546b;
+  --border-subtle: #44475a; --border-default: #6272a4; --border-strong: #8be9fd;
+  --fg-default: #f8f8f2;   --fg-muted: #b8bac6;     --fg-subtle: #8b8fa3;
+  --fg-inverted: #282a36;
+  --accent: #bd93f9;        --accent-hover: #caa6fa;  --accent-muted: #6272a4;
+  --accent-subtle: rgba(189, 147, 249, 0.14);
+  --accent-contrast: #282a36;
+  --success: #50fa7b; --warning: #f1fa8c; --danger: #ff5555; --info: #8be9fd;
+}
+[data-theme='mocha'] {
+  --bg-base: #1e1e2e;      --bg-sunken: #181825;   --bg-surface: #242437;
+  --bg-raised: #313244;    --bg-overlay: #313244;  --bg-hover: #3b3b4d;
+  --border-subtle: #313244; --border-default: #45475a; --border-strong: #6c6f85;
+  --fg-default: #cdd6f4;   --fg-muted: #a6adc8;     --fg-subtle: #9399b2;
+  --fg-inverted: #1e1e2e;
+  --accent: #cba6f7;        --accent-hover: #d8bdf9;  --accent-muted: #45475a;
+  --accent-subtle: rgba(203, 166, 247, 0.14);
+  --accent-contrast: #1e1e2e;
+  --success: #a6e3a1; --warning: #f9e2af; --danger: #f38ba8; --info: #89b4fa;
+}
+[data-theme='rose-pine'] {
+  --bg-base: #191724;      --bg-sunken: #16141f;   --bg-surface: #1f1d2e;
+  --bg-raised: #26233a;    --bg-overlay: #26233a;  --bg-hover: #302e47;
+  --border-subtle: #26233a; --border-default: #403d52; --border-strong: #6e6a86;
+  --fg-default: #e0def4;   --fg-muted: #b6b3d6;     --fg-subtle: #908cae;
+  --fg-inverted: #191724;
+  --accent: #ebbcba;        --accent-hover: #f0c9c7;  --accent-muted: #403d52;
+  --accent-subtle: rgba(235, 188, 186, 0.14);
+  --accent-contrast: #191724;
+  --success: #9ccfd8; --warning: #f6c177; --danger: #eb6f92; --info: #31748f;
+}
+[data-theme='solarized-light'] {
+  --bg-base: #fdf6e3;      --bg-sunken: #eee8d5;   --bg-surface: #f5efdc;
+  --bg-raised: #ece4cd;    --bg-overlay: #f2ead6;  --bg-hover: #e3dbc4;
+  --border-subtle: #eee8d5; --border-default: #ddd6c1; --border-strong: #b8ae93;
+  --fg-default: #073642;   --fg-muted: #586e75;     --fg-subtle: #93a1a1;
+  --fg-inverted: #fdf6e3;
+  --accent: #cb4b16;        --accent-hover: #d95a20;  --accent-muted: #eee0c8;
+  --accent-subtle: rgba(203, 75, 22, 0.12);
+  --accent-contrast: #fdf6e3;
+  --success: #859900; --warning: #b58900; --danger: #dc322f; --info: #268bd2;
+}
+[data-theme='gruvbox'] {
+  --bg-base: #282828;      --bg-sunken: #1d2021;   --bg-surface: #32302f;
+  --bg-raised: #3c3836;    --bg-overlay: #3c3836;  --bg-hover: #504945;
+  --border-subtle: #3c3836; --border-default: #504945; --border-strong: #665c54;
+  --fg-default: #ebdbb2;   --fg-muted: #bdae93;     --fg-subtle: #928374;
+  --fg-inverted: #282828;
+  --accent: #fabd2f;        --accent-hover: #fbbc22;  --accent-muted: #665c54;
+  --accent-subtle: rgba(250, 189, 47, 0.14);
+  --accent-contrast: #282828;
+  --success: #b8bb26; --warning: #fabd2f; --danger: #fb4934; --info: #83a598;
+}
+
+/* ---------------------------------------------------------------------------
+   BASE
+   ------------------------------------------------------------------------- */
+@layer base {
+  * { border-color: var(--border-subtle); }
+
+  html {
+    background-color: var(--bg-base);
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+  }
+  html[data-theme='solarized-light'] { color-scheme: light; }
+
+  body {
+    margin: 0;
+    background-color: var(--bg-base);
+    color: var(--fg-default);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overscroll-behavior-y: none;
+  }
+
+  ::selection {
+    background-color: var(--accent);
+    color: var(--accent-contrast);
+  }
+
+  /* Scrollbars — thin and unobtrusive. */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+    border: 3px solid var(--bg-base);
+  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--fg-subtle); }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+
+  input, textarea, select { font-family: inherit; }
+}
+
+/* ---------------------------------------------------------------------------
+   COMPONENT UTILITIES
+   ------------------------------------------------------------------------- */
+@layer components {
+  .surface {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+  }
+
+  .card-hover {
+    transition:
+      transform 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 0.35s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.35s ease,
+      filter 0.35s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-7px) scale(1.03);
+    box-shadow: 0 16px 38px -12px rgba(0, 0, 0, 0.9), 0 0 20px -6px rgba(232, 180, 74, 0.15);
+    border-color: rgba(232, 180, 74, 0.38);
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--bg-raised) 25%,
+      var(--bg-hover) 37%,
+      var(--bg-raised) 63%
+    );
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+  }
+
+  /* Ultra-sleek Frosted Glassmorphism with subtle specular reflection */
+  .glass {
+    background-color: color-mix(in srgb, var(--bg-base) 75%, transparent);
+    backdrop-filter: blur(20px) saturate(190%);
+    -webkit-backdrop-filter: blur(20px) saturate(190%);
+  }
+
+  .glass-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.01) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 24px -2px rgba(232, 180, 74, 0.4);
+  }
+
+  .scroll-fade-x {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 28px,
+      #000 calc(100% - 28px),
+      transparent 100%
+    );
+  }
+}
+
+@layer utilities {
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+
+  .text-balance { text-wrap: balance; }
+  .line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+  .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+
+  .aspect-poster { aspect-ratio: 2 / 3; }
+}
+
+/* ============================================================================
+   CINEMA SUBTITLE RENDERING
+   Crisp, high-contrast, Netflix-grade subtitles with text outline & backdrop
+   ========================================================================== */
+.shaka-text-container {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  pointer-events: none !important;
+  z-index: 25 !important;
+  padding-bottom: 2.5rem !important;
+}
+
+.shaka-text-container span,
+.shaka-text-wrapper {
+  background-color: rgba(0, 0, 0, 0.72) !important;
+  color: #ffffff !important;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif !important;
+  font-size: clamp(14px, 2.2vw, 24px) !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  padding: 0.2em 0.6em !important;
+  border-radius: 6px !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95), 0 0 2px rgba(0, 0, 0, 0.8) !important;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+video::cue {
+  background-color: rgba(0, 0, 0, 0.72) !important;
+  color: #ffffff !important;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif !important;
+  font-size: clamp(14px, 2.2vw, 24px) !important;
+  font-weight: 600 !important;
+  line-height: 1.4 !important;
+  border-radius: 6px !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.95) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

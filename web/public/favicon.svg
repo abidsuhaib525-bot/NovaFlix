@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14141e"/>
+      <stop offset="100%" stop-color="#07070a"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff2a54"/>
+      <stop offset="50%" stop-color="#e50914"/>
+      <stop offset="100%" stop-color="#f5a623"/>
+    </linearGradient>
+    <linearGradient id="pillar" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff4d6d"/>
+      <stop offset="100%" stop-color="#b8000c"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#e50914" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <!-- Base rounded container -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#bg)" stroke="url(#glow)" stroke-width="2.5"/>
+
+  <!-- Stylized Cine-N Ribbon (NovaFlix) -->
+  <!-- Left vertical pillar -->
+  <path d="M17 15 H24.5 V49 H17 Z" fill="url(#pillar)" />
+  <!-- Diagonal ribbon -->
+  <path d="M22.5 15 L41.5 49 H47 L28 15 Z" fill="url(#glow)" filter="url(#shadow)" />
+  <!-- Right vertical pillar -->
+  <path d="M39.5 15 H47 V49 H39.5 Z" fill="url(#pillar)" />
+
+  <!-- 4K Sparkle Star -->
+  <circle cx="50" cy="14" r="3.5" fill="#f5a623" />
+</svg>

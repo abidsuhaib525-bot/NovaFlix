@@ -1,0 +1,37 @@
+debug/
+target/
+**/*.rs.bk
+*.pdb
+.vscode/
+.idea/
+*.swp
+*.swo
+*.iml
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.AppleDouble
+.LSOverride
+debug_*.json
+*.log
+dist/
+book/
+
+# --- MovieBox Web -----------------------------------------------------------
+# MinGW-w64 GCC, fetched by scripts/setup-toolchain.ps1. Vendoring ~100 MB of
+# toolchain into the repo would be worse than a one-line fetch.
+.toolchain/
+
+# The React front-end. `npm ci` is faster and stricter than a checkout.
+web/node_modules/
+web/.vite/
+
+# User data written at runtime. `--data-dir` normally points elsewhere, but a
+# `cargo run` from the repo root can land here.
+data/
+docs/changelog.md
+docs/contributing.md
