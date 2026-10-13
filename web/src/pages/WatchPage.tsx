@@ -616,7 +616,7 @@ function ShakaStage({
         playerRef.current = instance as PlayerLike;
         player = instance;
 
-        // Configure UITextDisplayer for beautiful, reliable subtitle rendering
+        // Configure UITextDisplayer for beautiful, reliable subtitle rendering on top of container
         try {
           const displayContainer = containerRef.current || video.parentElement;
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -624,8 +624,8 @@ function ShakaStage({
           if (displayContainer && UITextDisplayer) {
             instance.configure('textDisplayFactory', () => new UITextDisplayer(video, displayContainer));
           }
-        } catch {
-          /* text displayer fallback */
+        } catch (e) {
+          console.warn('[UITextDisplayer fallback]', e);
         }
 
         // Configure Shaka for instant start, network resilience, and automatic retry on packet drops
