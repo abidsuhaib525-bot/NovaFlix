@@ -81,7 +81,9 @@ function snapshotOf(video: HTMLVideoElement): VideoSnapshot {
     volume: video.volume,
     muted: video.muted,
     playbackRate: video.playbackRate,
-    waiting: ((video.readyState < 3 && !video.paused && !video.ended) || video.seeking),
+    // readyState < 2 means not even current frame data is ready to show.
+    // readyState >= 2 means current frame is visible; only show waiting when actively seeking or depleted.
+    waiting: ((video.readyState < 2 && !video.paused && !video.ended) || video.seeking),
     ready: video.readyState >= 1,
   };
 }

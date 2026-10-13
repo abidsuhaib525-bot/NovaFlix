@@ -99,7 +99,7 @@ function Chip({
 
 export function PlayerMenu({
   controller,
-  activeTab = 'audio_subs',
+  activeTab = 'quality',
   onTabChange,
   dubs = [],
   currentDubId = '',
@@ -147,6 +147,67 @@ export function PlayerMenu({
     <div className="w-[23.5rem] sm:w-[26rem] max-w-[calc(100vw-1.5rem)] space-y-4 rounded-2xl border border-white/10 bg-[#0b0b10]/95 p-4 text-white shadow-2xl backdrop-blur-md">
       {/* Tab Navigation Header */}
       <div className={`grid gap-1 border-b border-white/10 pb-3 ${hasSeasons ? 'grid-cols-5' : 'grid-cols-4'}`}>
+        {/* Tab 1: Quality (Default) */}
+        <button
+          type="button"
+          onClick={() => onTabChange?.('quality')}
+          className={`inline-flex cursor-pointer items-center justify-center gap-1 rounded-lg py-1.5 px-1 text-[11px] font-semibold transition ${
+            activeTab === 'quality'
+              ? 'bg-accent text-accent-contrast shadow-sm'
+              : 'text-white/70 hover:bg-white/10 hover:text-white'
+          }`}
+          title="Quality & Resolution"
+        >
+          <Sliders className="size-3.5 shrink-0" />
+          <span className="truncate">Quality</span>
+        </button>
+
+        {/* Tab 2: Audio & Subtitles */}
+        <button
+          type="button"
+          onClick={() => onTabChange?.('audio_subs')}
+          className={`inline-flex cursor-pointer items-center justify-center gap-1 rounded-lg py-1.5 px-1 text-[11px] font-semibold transition ${
+            activeTab === 'audio_subs'
+              ? 'bg-accent text-accent-contrast shadow-sm'
+              : 'text-white/70 hover:bg-white/10 hover:text-white'
+          }`}
+          title="Audio & Subtitles"
+        >
+          <Languages className="size-3.5 shrink-0" />
+          <span className="truncate">Audio</span>
+        </button>
+
+        {/* Tab 3: Display Aspect Ratio */}
+        <button
+          type="button"
+          onClick={() => onTabChange?.('aspect_ratio')}
+          className={`inline-flex cursor-pointer items-center justify-center gap-1 rounded-lg py-1.5 px-1 text-[11px] font-semibold transition ${
+            activeTab === 'aspect_ratio'
+              ? 'bg-accent text-accent-contrast shadow-sm'
+              : 'text-white/70 hover:bg-white/10 hover:text-white'
+          }`}
+          title="Display Aspect Ratio (Fit, Fill, 16:9, Stretch)"
+        >
+          <Monitor className="size-3.5 shrink-0" />
+          <span className="truncate">Display</span>
+        </button>
+
+        {/* Tab 4: Speed */}
+        <button
+          type="button"
+          onClick={() => onTabChange?.('settings')}
+          className={`inline-flex cursor-pointer items-center justify-center gap-1 rounded-lg py-1.5 px-1 text-[11px] font-semibold transition ${
+            activeTab === 'settings'
+              ? 'bg-accent text-accent-contrast shadow-sm'
+              : 'text-white/70 hover:bg-white/10 hover:text-white'
+          }`}
+          title="Speed & Shortcuts"
+        >
+          <Gauge className="size-3.5 shrink-0" />
+          <span className="truncate">Speed</span>
+        </button>
+
+        {/* Tab 5: Episodes (when available) */}
         {hasSeasons && (
           <button
             type="button"
@@ -162,62 +223,6 @@ export function PlayerMenu({
             <span className="truncate">Episodes</span>
           </button>
         )}
-
-        <button
-          type="button"
-          onClick={() => onTabChange?.('audio_subs')}
-          className={`inline-flex cursor-pointer items-center justify-center gap-1 rounded-lg py-1.5 px-1 text-[11px] font-semibold transition ${
-            activeTab === 'audio_subs'
-              ? 'bg-accent text-accent-contrast shadow-sm'
-              : 'text-white/70 hover:bg-white/10 hover:text-white'
-          }`}
-          title="Audio & Subtitles"
-        >
-          <Languages className="size-3.5 shrink-0" />
-          <span className="truncate">Audio</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onTabChange?.('quality')}
-          className={`inline-flex cursor-pointer items-center justify-center gap-1 rounded-lg py-1.5 px-1 text-[11px] font-semibold transition ${
-            activeTab === 'quality'
-              ? 'bg-accent text-accent-contrast shadow-sm'
-              : 'text-white/70 hover:bg-white/10 hover:text-white'
-          }`}
-          title="Quality & Resolution"
-        >
-          <Sliders className="size-3.5 shrink-0" />
-          <span className="truncate">Quality</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onTabChange?.('aspect_ratio')}
-          className={`inline-flex cursor-pointer items-center justify-center gap-1 rounded-lg py-1.5 px-1 text-[11px] font-semibold transition ${
-            activeTab === 'aspect_ratio'
-              ? 'bg-accent text-accent-contrast shadow-sm'
-              : 'text-white/70 hover:bg-white/10 hover:text-white'
-          }`}
-          title="Display Aspect Ratio (Fit, Fill, 16:9, Stretch)"
-        >
-          <Monitor className="size-3.5 shrink-0" />
-          <span className="truncate">Display</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onTabChange?.('settings')}
-          className={`inline-flex cursor-pointer items-center justify-center gap-1 rounded-lg py-1.5 px-1 text-[11px] font-semibold transition ${
-            activeTab === 'settings'
-              ? 'bg-accent text-accent-contrast shadow-sm'
-              : 'text-white/70 hover:bg-white/10 hover:text-white'
-          }`}
-          title="Speed & Shortcuts"
-        >
-          <Gauge className="size-3.5 shrink-0" />
-          <span className="truncate">Speed</span>
-        </button>
       </div>
 
       {/* Tab 0: Episodes (when available) */}

@@ -427,19 +427,19 @@ export function Player({
         </button>
       )}
 
-      {/* Netflix-style circular loading / buffering spinner */}
+      {/* Netflix-style unobtrusive circular buffering indicator (never dims entire screen) */}
       {(status === 'loading' ||
         (status === 'playing' && !state.paused && (state.waiting || !state.ready))) && (
-        <div className="pointer-events-none absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/45 backdrop-blur-[1px] transition-opacity duration-200">
-          <div className="relative flex size-16 items-center justify-center sm:size-20">
+        <div className="pointer-events-none absolute inset-0 z-20 flex flex-col items-center justify-center transition-opacity duration-300">
+          <div className="relative flex size-14 items-center justify-center rounded-2xl bg-black/50 p-3 backdrop-blur-md border border-white/10 shadow-2xl">
             {/* Outer rotating accent arc */}
-            <div className="absolute size-14 sm:size-16 animate-spin rounded-full border-4 border-white/15 border-t-accent" />
-            {/* Center glowing dot */}
-            <div className="size-6 sm:size-8 animate-pulse rounded-full bg-accent/25" />
+            <div className="size-8 animate-spin rounded-full border-3 border-white/20 border-t-accent" />
           </div>
-          <p className="mt-3 text-[12px] font-semibold tracking-wider text-white/85 drop-shadow uppercase">
-            {status === 'loading' ? 'Loading video...' : 'Buffering...'}
-          </p>
+          {status === 'loading' && (
+            <p className="mt-2 text-[11px] font-semibold tracking-wider text-white/80 drop-shadow uppercase bg-black/60 px-3 py-1 rounded-full backdrop-blur-sm border border-white/10">
+              Loading video...
+            </p>
+          )}
         </div>
       )}
 

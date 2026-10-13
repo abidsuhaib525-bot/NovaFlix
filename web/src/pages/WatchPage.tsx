@@ -628,25 +628,34 @@ function ShakaStage({
           /* text displayer fallback */
         }
 
-        // Configure Shaka for instant start, low rebuffering goal and aggressive stall recovery
+        // Configure Shaka for instant start, network resilience, and automatic retry on packet drops
         instance.configure({
           streaming: {
-            rebufferingGoal: 0.1,
-            bufferingGoal: 8,
+            rebufferingGoal: 2,
+            bufferingGoal: 15,
             bufferBehind: 30,
             stallEnabled: true,
             stallThreshold: 1,
             jumpLargeGaps: true,
             inaccurateManifestTolerance: 2,
+            retryParameters: {
+              maxAttempts: 6,
+              baseDelay: 1000,
+              backoffFactor: 1.5,
+              fuzzFactor: 0.5,
+              timeout: 15000,
+            },
           },
           manifest: {
             dash: {
               ignoreMinBufferTime: true,
             },
             retryParameters: {
-              maxAttempts: 3,
-              baseDelay: 500,
+              maxAttempts: 5,
+              baseDelay: 1000,
               backoffFactor: 1.5,
+              fuzzFactor: 0.5,
+              timeout: 15000,
             },
           },
         });
@@ -656,11 +665,22 @@ function ShakaStage({
           if (cancelled) return;
           const detail = event.detail;
           // In Shaka Player, severity 1 is RECOVERABLE (e.g. non-critical subtitle fetch failure).
-          // Only severity 2 (CRITICAL) halts video playback!
           if (detail && detail.severity === 1) {
             console.warn('[Shaka Non-Critical Warning]', detail);
             return;
           }
+
+          // If it's a temporary network glitch (Category 1: NETWORK), attempt automatic recovery
+          if (detail && detail.category === 1 && instance.retryStreaming) {
+            console.warn('[Shaka Network Glitch - Attempting Auto-Recovery]', detail);
+            try {
+              instance.retryStreaming();
+              return;
+            } catch {
+              /* fallback to error */
+            }
+          }
+
           setStatus('error');
           setErrorText(describeShakaError(detail));
         });

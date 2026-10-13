@@ -317,7 +317,7 @@ export function PlayerControls({
           {/* Unified Settings Icon (Quality, Audio, Dubs, Subs, Speed, Shortcuts) */}
           <IconButton
             label={`Settings · ${qualityBadge}`}
-            onClick={() => onToggleMenu(activeMenu ? activeMenu : 'settings')}
+            onClick={() => onToggleMenu(activeMenu ? activeMenu : 'quality')}
           >
             <Settings2 className={`size-5 ${activeMenu ? 'text-accent' : ''}`} />
           </IconButton>
