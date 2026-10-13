@@ -132,7 +132,12 @@ pub async fn handle_request(
     // Serve the rewritten manifest straight from cache when possible.
     if (is_dash || is_hls) && range_header.is_none() {
         if let Some(bytes) = cached_manifest(&session, &target_url) {
-            return buffered_response(StatusCode::OK, "application/dash+xml", bytes, None);
+            let content_type = if is_hls {
+                "application/vnd.apple.mpegurl"
+            } else {
+                "application/dash+xml"
+            };
+            return buffered_response(StatusCode::OK, content_type, bytes, None);
         }
     }
 

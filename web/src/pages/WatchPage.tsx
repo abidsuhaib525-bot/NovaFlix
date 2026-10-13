@@ -40,6 +40,7 @@ import {
   useProgressSaver,
 } from '@/hooks/usePlayback';
 import { cleanTitle, formatDuration } from '@/lib/format';
+import { api } from '@/lib/api';
 import { isProviderKind, paths, readIndex } from '@/lib/routes';
 import type { AudioTrackOption, ProviderKind, Release, Season, SubtitleOption } from '@/types';
 
@@ -141,8 +142,8 @@ function WatchInner({
   const seasons = details.data?.seasons ?? NO_SEASONS;
 
   const nextEpisode = useMemo(
-    () => findNextEpisode(seasons, season, episode),
-    [seasons, season, episode],
+    () => findNextEpisode(seasons, effectiveSeason, effectiveEpisode),
+    [seasons, effectiveSeason, effectiveEpisode],
   );
 
   // The player is gated on the Streaming toggle from settings. Loading the
@@ -176,11 +177,11 @@ function WatchInner({
   return (
     <div className="relative h-full w-full bg-black">
       <PlayerStage
-        key={`${p}:${id}:${season}:${episode}`}
+        key={`${p}:${id}:${effectiveSeason}:${effectiveEpisode}`}
         provider={p}
         id={id}
-        season={season}
-        episode={episode}
+        season={effectiveSeason}
+        episode={effectiveEpisode}
         resourceId={resourceId}
         mirror={mirror}
         quality={quality}
@@ -189,7 +190,7 @@ function WatchInner({
         releasesError={streams.isError}
         title={title}
         releaseYear={details.data?.year ?? null}
-        episodeLabel={isSeries ? `Season ${season}, Episode ${episode}` : null}
+        episodeLabel={isSeries ? `Season ${effectiveSeason}, Episode ${effectiveEpisode}` : null}
         poster={details.data?.poster_url ?? null}
         seasons={seasons}
         nextEpisode={nextEpisode}
@@ -202,7 +203,7 @@ function WatchInner({
         dubs={details.data?.dubs ?? []}
         onSelectDub={(dub) => {
           if (dub.subject_id && dub.subject_id !== id) {
-            navigate(paths.watch(p, dub.subject_id, { season, episode }));
+            navigate(paths.watch(p, dub.subject_id, { season: effectiveSeason, episode: effectiveEpisode }));
           }
         }}
       />
@@ -411,8 +412,8 @@ function PlayerStage({
   return (
     <ShakaStage
       key={setup.session.session_id}
-      manifestUrl={setup.session.manifest_url}
-      proxyBase={setup.session.proxy_base}
+      manifestUrl={api.resolveUrl(setup.session.manifest_url)}
+      proxyBase={api.resolveUrl(setup.session.proxy_base)}
       release={setup.release}
       mirrorIndex={setup.mirrorIndex}
       releases={releases}

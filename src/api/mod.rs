@@ -86,6 +86,7 @@ pub fn app_router(state: AppState, web_root: &Path) -> Router {
         // would have named the actual mistake.
         .nest("/api", api.fallback(api_not_found))
         .fallback_service(SpaAssets::new(web_root))
+        .layer(tower_http::cors::CorsLayer::permissive())
         // No size threshold: `tower-http` 0.6 ships no built-in predicate for
         // it. Gzipping a short JSON body costs a few dozen bytes and saves a
         // comparable amount, so a size gate would be noise either way.

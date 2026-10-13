@@ -49,10 +49,18 @@ function qs(params: Query): string {
   return s ? `?${s}` : '';
 }
 
+export const API_BASE = ((import.meta as unknown as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+
+export function resolveUrl(path: string): string {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  return `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(path, {
+    res = await fetch(resolveUrl(path), {
       ...init,
       headers: {
         ...(init?.body ? { 'content-type': 'application/json' } : {}),
@@ -152,7 +160,9 @@ export const api = {
     }),
 
   /** Poster bytes are proxied so we control the User-Agent and size cap. */
-  posterUrl: (url: string) => `/api/poster${qs({ url })}`,
+  posterUrl: (url: string) => resolveUrl(`/api/poster${qs({ url })}`),
+  downloadsStreamUrl: () => resolveUrl('/api/downloads/stream'),
+  resolveUrl: (path: string) => resolveUrl(path),
 
   /* Playback ------------------------------------------------------------- */
   createPlaybackSession: (source: PlaybackSource) =>

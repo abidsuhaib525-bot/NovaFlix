@@ -8,8 +8,8 @@ COPY web/ ./
 RUN npm run build
 
 # 2. Build the Rust backend
-FROM rust:1.83-alpine AS backend-builder
-RUN apk add --no-cache musl-dev
+FROM rust:alpine AS backend-builder
+RUN apk add --no-cache musl-dev gcc build-base
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY src/ ./src/
@@ -17,7 +17,7 @@ RUN cargo build --release
 
 # 3. Final minimal runner image
 FROM alpine:3.20
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates ffmpeg
 WORKDIR /app
 
 # Copy built backend binary and web dist assets

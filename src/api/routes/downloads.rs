@@ -155,14 +155,23 @@ async fn start_download(
         _ => "mkv",
     };
 
+    let sanitize_stem = |raw: &str| {
+        let mut stem = crate::download::safe_file_stem(raw);
+        let lower = stem.to_ascii_lowercase();
+        if lower.ends_with(".mp4") || lower.ends_with(".mkv") {
+            stem.truncate(stem.len() - 4);
+        }
+        stem
+    };
+
     let filename = request
         .filename
         .filter(|f| !f.trim().is_empty())
-        .map(|f| format!("{}.{ext}", crate::download::safe_file_stem(&f)))
+        .map(|f| format!("{}.{ext}", sanitize_stem(&f)))
         .unwrap_or_else(|| {
             format!(
                 "{}.{ext}",
-                crate::download::safe_file_stem(
+                sanitize_stem(
                     request
                         .title
                         .as_deref()

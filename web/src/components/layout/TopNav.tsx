@@ -20,6 +20,7 @@ import { SearchBar } from '@/components/layout/SearchBar';
 import { useHomepageTabs, useProviders } from '@/hooks/useCatalog';
 import { formatBytes, formatSpeed } from '@/lib/format';
 import { paths } from '@/lib/routes';
+import { api } from '@/lib/api';
 import { THEMES } from '@/lib/theme';
 import { useUiStore } from '@/store/ui';
 
@@ -301,7 +302,7 @@ function DownloadHeaderAction({ to, label }: { to: string; label: string }) {
 
   // Hook live SSE progress stream for real download metrics & multi-download count
   useEffect(() => {
-    const stream = new EventSource('/api/downloads/stream');
+    const stream = new EventSource(api.downloadsStreamUrl());
     const onProgress = (event: MessageEvent<string>) => {
       try {
         const frame = JSON.parse(event.data);

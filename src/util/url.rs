@@ -45,8 +45,9 @@ pub fn is_subtitle_url(url: &str) -> bool {
 pub fn extract_host_authority(url: &str) -> Option<String> {
     let after_scheme = url
         .strip_prefix("https://")
-        .or_else(|| url.strip_prefix("http://"))?;
-    let authority = after_scheme.split('/').next()?;
+        .or_else(|| url.strip_prefix("http://"))
+        .or_else(|| url.strip_prefix("//"))?;
+    let authority = after_scheme.split(['/', '?', '#']).next()?;
     if authority.is_empty() {
         None
     } else {
@@ -159,8 +160,17 @@ mod tests {
             extract_host_authority("http://cdn.example.com:8080/a.mp4").as_deref(),
             Some("cdn.example.com:8080")
         );
+        assert_eq!(
+            extract_host_authority("https://cdn.example.com?query=val").as_deref(),
+            Some("cdn.example.com")
+        );
+        assert_eq!(
+            extract_host_authority("//cdn.example.com/stream.m3u8").as_deref(),
+            Some("cdn.example.com")
+        );
         assert_eq!(extract_host_authority("not-a-url"), None);
         assert_eq!(extract_host_authority("https://"), None);
+        assert_eq!(extract_host_authority("//"), None);
     }
 
     #[test]

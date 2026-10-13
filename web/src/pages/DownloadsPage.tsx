@@ -51,7 +51,7 @@ export function DownloadsPage() {
   const knownIdsRef = useRef<Set<string> | null>(null);
 
   useEffect(() => {
-    const stream = new EventSource('/api/downloads/stream');
+    const stream = new EventSource(api.downloadsStreamUrl());
     const onProgress = (event: MessageEvent<string>) => {
       try {
         // A bare JSON `progress` event, as produced by

@@ -291,7 +291,7 @@ fn rewrite_uri(uri: &str, proxy_base: &str, base_dir: &str) -> String {
 
     // Protocol-relative.
     if let Some(rest) = uri.strip_prefix("//") {
-        if let Some(host) = crate::util::url::extract_host_authority(rest) {
+        if let Some(host) = crate::util::url::extract_host_authority(uri) {
             let path = rest.split_once('/').map(|(_, p)| p).unwrap_or("");
             return format!("{proxy_base}/https/{host}/{path}");
         }
@@ -620,7 +620,7 @@ mod tests {
 
     #[test]
     fn hls_segments_and_keys_are_rewritten() {
-        let playlist = "#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI=\"keys/key.bin\"\n#EXTINF:4.0,\nseg1.ts\n#EXTINF:4.0,\nhttps://other.example.com/seg2.ts\n";
+        let playlist = "#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI=\"keys/key.bin\"\n#EXTINF:4.0,\nseg1.ts\n#EXTINF:4.0,\nhttps://other.example.com/seg2.ts\n#EXTINF:4.0,\n//proto.example.com/seg3.ts\n";
         let out = rewrite_hls_playlist(
             playlist,
             "/api/playback/SID",
@@ -629,6 +629,7 @@ mod tests {
         assert!(out.contains("/api/playback/SID/https/cdn.example.com/hls/keys/key.bin"));
         assert!(out.contains("/api/playback/SID/https/cdn.example.com/hls/seg1.ts"));
         assert!(out.contains("/api/playback/SID/https/other.example.com/seg2.ts"));
+        assert!(out.contains("/api/playback/SID/https/proto.example.com/seg3.ts"));
         assert!(out.contains("#EXTINF:4.0,"), "segment markers survive");
     }
 

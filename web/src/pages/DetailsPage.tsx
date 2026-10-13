@@ -925,7 +925,9 @@ function SeasonPicker({
   seriesTitle?: string;
   releaseYear?: string | null;
 }) {
+  if (!seasons || seasons.length === 0) return null;
   const current = seasons.find((candidate) => candidate.number === season) ?? seasons[0];
+  if (!current || !Array.isArray(current.episodes)) return null;
   const lastEpisode = Math.max(1, current.episodes.length);
   const active = Math.min(Math.max(1, episode), lastEpisode);
 

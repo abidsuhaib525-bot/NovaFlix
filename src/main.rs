@@ -92,6 +92,21 @@ impl Args {
         let mut data_dir = None;
         let mut log_level = "info".to_string();
 
+        // Support standard cloud environment variables: $PORT and $HOST as defaults
+        if let Ok(port_str) = std::env::var("PORT") {
+            if let Ok(port) = port_str.parse::<u16>() {
+                addr_value.set_port(port);
+            }
+        }
+        if let Ok(host_str) = std::env::var("HOST") {
+            if let Ok(ip) = host_str.parse::<std::net::IpAddr>() {
+                addr_value.set_ip(ip);
+            }
+        } else if std::env::var("PORT").is_ok() {
+            // In cloud environments like Koyeb/Render, bind to 0.0.0.0 by default
+            addr_value.set_ip(std::net::IpAddr::V4(std::net::Ipv4Addr::new(0, 0, 0, 0)));
+        }
+
         while let Some(arg) = iter.next() {
             match arg.as_str() {
                 "--host" | "-h" => {
@@ -136,21 +151,6 @@ impl Args {
                 }
                 other => eprintln!("ignoring unknown argument `{other}`"),
             }
-        }
-
-        // Support standard cloud environment variables: $PORT and $HOST
-        if let Ok(port_str) = std::env::var("PORT") {
-            if let Ok(port) = port_str.parse::<u16>() {
-                addr_value.set_port(port);
-            }
-        }
-        if let Ok(host_str) = std::env::var("HOST") {
-            if let Ok(ip) = host_str.parse::<std::net::IpAddr>() {
-                addr_value.set_ip(ip);
-            }
-        } else if std::env::var("PORT").is_ok() {
-            // In cloud environments like Koyeb/Render, bind to 0.0.0.0 by default
-            addr_value.set_ip(std::net::IpAddr::V4(std::net::Ipv4Addr::new(0, 0, 0, 0)));
         }
 
         Self {

@@ -29,6 +29,7 @@ book/
 # The React front-end. `npm ci` is faster and stricter than a checkout.
 web/node_modules/
 web/.vite/
+*.tsbuildinfo
 
 # User data written at runtime. `--data-dir` normally points elsewhere, but a
 # `cargo run` from the repo root can land here.
