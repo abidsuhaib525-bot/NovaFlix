@@ -1,3 +1,12 @@
+---
+title: NovaFlix
+emoji: 🎬
+colorFrom: red
+colorTo: purple
+sdk: docker
+app_port: 7860
+---
+
 <div align="center">
 
 # 🎬 NovaFlix

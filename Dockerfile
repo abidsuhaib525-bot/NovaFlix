@@ -24,8 +24,10 @@ WORKDIR /app
 COPY --from=backend-builder /app/target/release/novaflix /app/novaflix
 COPY --from=frontend-builder /app/web/dist /app/web/dist
 
-ENV PORT=8080
+RUN mkdir -p /app/data && chmod -R 777 /app
+
+ENV PORT=7860
 ENV HOST=0.0.0.0
-EXPOSE 8080
+EXPOSE 7860
 
 CMD ["/app/novaflix", "--web-root", "/app/web/dist"]
