@@ -1,165 +1,105 @@
 <div align="center">
 
-# MovieBox-TUI
+# 🎬 NovaFlix
 
-**Terminal interface to find, download, and stream movies, TV shows, and live TV using local media players.**
+**A modern, cinema-grade web streaming platform with ultra-low latency playback, multi-source resolution switching, rich cast metadata, and sleek responsive UI.**
 
-[ English ](README.md) • [ বাংলা ](README_BN.md) • [ हिन्दी ](README_HI.md) • [ Español ](README_ES.md)
+[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-amber.svg?style=flat-square)](#license)
+[![React](https://img.shields.io/badge/React-19-blue.svg?style=flat-square&logo=react)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-6-646CFF.svg?style=flat-square&logo=vite)](https://vitejs.dev/)
+[![Rust](https://img.shields.io/badge/Rust-Axum_0.8-DEA584.svg?style=flat-square&logo=rust)](https://www.rust-lang.org/)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-v4-38B2AC.svg?style=flat-square&logo=tailwind-css)](https://tailwindcss.com/)
 
-[![CI](https://img.shields.io/github/actions/workflow/status/mesamirh/MovieBox-Tui/ci.yml?branch=main&label=CI&logo=github&style=flat)](https://github.com/mesamirh/MovieBox-Tui/actions/workflows/ci.yml)
-[![crates.io](https://img.shields.io/crates/v/moviebox-tui.svg?logo=rust&style=flat)](https://crates.io/crates/moviebox-tui)
-[![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg?style=flat)](#license)
-[![Telegram](https://img.shields.io/badge/Telegram-Channel-2CA5E0?style=flat&logo=telegram&logoColor=white)](https://t.me/getfromme)
-[![Support](https://img.shields.io/badge/Support-Crypto-F7931A?style=flat&logo=bitcoin&logoColor=white)](#optional-support)
 </div>
 
-[moviebox-tui-walkthrough.webm](https://github.com/user-attachments/assets/7554a7e5-6ff5-49ec-9d87-f821ea99950e)
+---
 
-## Features
+## ✨ Features
 
-- **Streaming:** Movies, TV series, anime, Asian dramas, and community Stremio addons across multiple native providers.
-- **Live TV:** M3U playlist import with channel categories, EPG support, and search.
-- **Resolution Picker:** Direct stream quality selection (`4K`, `1080p`, `720p`, `480p`, `Auto`) before playback.
-- **Hardware Players:** Direct launch in `mpv`, `VLC`, or `IINA` with custom auth header and cookie forwarding.
-- **Batch Downloader:** Multi-segment concurrent downloader with HTTP range pause and resume for episodes and full seasons.
-- **Subtitle Picker:** Multi-language subtitle tracks extracted and selectable via an interactive picker before playback or download.
-- **Terminal UI:** Vim navigation, mouse interaction, slash command palette (`/help`, `/settings`), and 9 built-in themes.
-- **Cover Art:** Native Kitty, Sixel, and iTerm2 poster rendering with automatic text fallback.
-- **Resume & Library:** Home deck with continue-watching timestamps, watch history, and favorites stored strictly on local disk. Zero telemetry.
+- **📺 Full Web Experience:** High-performance Single Page Application (React 19 + TypeScript + Vite + Tailwind CSS v4) with dark cinema aesthetic.
+- **⚡ Shaka Player Engine:** Custom Netflix-style HTML5 video player powered by Shaka Player:
+  - Multi-resolution switching (`4K`, `1080p`, `720p`, `480p`, `Auto ABR`).
+  - Resilient network auto-recovery with automatic retry on packet drops.
+  - Multi-language audio tracks & external subtitle auto-loader (SRT, VTT, ASS).
+  - Aspect ratio switcher (`Contain`, `Cover / Cinema Fill`, `16:9`, `Stretch`).
+  - Sleek, non-intrusive circular buffering indicators that keep the screen clear.
+- **🎥 Official YouTube Trailers:** Direct in-app trailer playback powered by TMDB Videos API.
+- **👥 Top-Billed Cast & Crew:** High-resolution actor avatars, character roles, and filmography previews like Movnix.
+- **🎞️ Seasons & Episodes Layout:**
+  - Compact Movnix-style horizontal & grid episode cards with individual production stills, episode titles, and runtimes.
+  - Quick Grid / List toggle switcher.
+- **📥 In-Browser Download Manager:** Direct download options in both MP4 (Standard) and MKV (Original) with quality selection.
+- **🌐 Dual-Engine Deployment:**
+  - High-speed Rust backend built with **Axum** serves streaming proxy endpoints and production SPA assets directly.
+  - Vite dev server with Hot Module Replacement (HMR) for development.
 
-## Prerequisites
+---
 
-- **Media Player:** `mpv`, `VLC`, or `IINA` (macOS) / any external video player (Android).
-- **Posters:** Terminal with Sixel, Kitty, or iTerm2 support (Ghostty, Kitty, WezTerm, iTerm2, foot, Windows Terminal v1.22+).
-- **DASH Downloads:** `yt-dlp` and `ffmpeg` (required only for MovieBox DASH downloads).
+## 🚀 Quick Start
 
-## Installation
+### 1. Prerequisites
+- **Node.js**: v18+ (Node.js 20+ recommended)
+- **Rust**: 1.80+ (only required if building the native Axum backend server)
 
-### macOS & Linux
+---
 
-If you have [Homebrew](https://brew.sh/) on macOS:
-```bash
-brew tap mesamirh/moviebox-tui https://github.com/mesamirh/MovieBox-Tui
-brew install moviebox-tui
-```
-
-> **Note:** If Homebrew prompts for tap verification on initial install, run `brew trust mesamirh/moviebox-tui`.
-
-Direct install via Terminal (macOS & Linux, no package manager needed):
-```bash
-curl -fsSL https://raw.githubusercontent.com/mesamirh/MovieBox-Tui/main/install.sh | bash
-```
-
-### Windows
-
-If you have [Scoop](https://scoop.sh/) (recommended):
-```powershell
-scoop bucket add moviebox https://github.com/mesamirh/MovieBox-Tui
-scoop install moviebox-tui
-```
-
-Direct install via PowerShell (no package manager needed):
-```powershell
-irm https://raw.githubusercontent.com/mesamirh/MovieBox-Tui/main/install.ps1 | iex
-```
-
-> **SmartScreen prompt:** If Windows displays *"Windows protected your PC"*, click **More info** → **Run anyway**.
-
-### Android (Termux)
-```bash
-pkg update && pkg install -y curl tar termux-tools termux-am
-curl -fsSL https://raw.githubusercontent.com/mesamirh/MovieBox-Tui/main/install.sh | bash
-termux-setup-storage
-```
-
-<details>
-<summary><b>Cargo & Source Build</b></summary>
+### 2. Running Frontend (Vite Dev Server)
 
 ```bash
-cargo install moviebox-tui --locked
+cd web
+npm install
+npm run dev
 ```
 
-From source:
-```bash
-git clone https://github.com/mesamirh/MovieBox-Tui.git
-cd MovieBox-Tui
-cargo build --release --locked
-```
+The web application will be live at:
+👉 **`http://localhost:5173`**
 
-</details>
+---
 
-<details>
-<summary><b>Verify Release Integrity</b></summary>
+### 3. Running Backend (Rust Axum Server)
 
-```bash
-sha256sum -c SHA256SUMS --ignore-missing
-gh attestation verify <archive-file> -R mesamirh/MovieBox-Tui
-```
-
-</details>
-
-<details>
-<summary><b>Uninstall</b></summary>
-
-Re-run install command (`curl ... | bash` or `irm ... | iex`) and select `2) Uninstall`.
-
-Or via package manager:
-```bash
-brew uninstall moviebox-tui     # Homebrew
-scoop uninstall moviebox-tui    # Scoop
-cargo uninstall moviebox-tui    # Cargo
-```
-
-</details>
-
-## Quick Start
+From the project root:
 
 ```bash
-moviebox-tui
+cargo run
 ```
 
-- Type to search, press `Enter` to play.
-- Press `?` for shortcuts, or type `/settings` for preferences.
+The unified API server & static web app will be served on:
+👉 **`http://127.0.0.1:8080`**
 
-## Documentation
+---
 
-Full documentation at [**mesamirh.github.io/MovieBox-Tui**](https://mesamirh.github.io/MovieBox-Tui/) or [`docs/`](docs/):
+### 4. Building Production Bundle
 
-| Guide | Description |
-| :--- | :--- |
-| [Keyboard & Controls](docs/controls.md) | Keybindings, vim navigation, and shortcuts |
-| [Configuration](docs/config.md) | Settings, themes, and environment variables |
-| [Content Providers](docs/providers.md) | Native scrapers (MovieBox, 4KHDHub, Dramachi, BDIX) |
-| [Stremio Addons](docs/addons-mode.md) | Community addon configuration and streaming |
-| [Hardware Players](docs/players.md) | Player detection, launch options, and flags |
-| [Live TV & IPTV](docs/tv-mode.md) | M3U playlist import and channel streaming |
-| [Batch Downloads](docs/downloads.md) | HTTP range engine, pause, and resume |
+To build the optimized frontend assets:
 
-## Contributing
+```bash
+cd web
+npm run build
+```
 
-Review [CONTRIBUTING.md](CONTRIBUTING.md) before submitting pull requests. Report bugs via [GitHub Issues](https://github.com/mesamirh/MovieBox-Tui/issues).
+This compiles static assets into `web/dist/`, which the Rust server serves with zero extra configuration.
 
-<details>
-<summary><b>Support</b></summary>
-<div id="optional-support" tabindex="-1"></div>
+---
 
-| Asset | Address |
-| :--- | :--- |
-| **USDT (TRC20)** | `TL4yW73qmbKZpBWwbEFgjBpwVkPDFTkJgV` |
-| **Bitcoin (BTC)** | `3MEAtqtRWrQBhnaMi3Zuf5nt2efNUS2LUQ` |
-| **Ethereum (EVM)** | `0x7ea20d5fa29d87f33195f5a3b211ff94038d794c` |
-| **Solana (SOL)** | `6ctm5WFv73MNywoCKAz3xK72yizSspHa72rFNygooU6` |
+## 🛠️ Tech Stack
 
-</details>
+| Layer | Technologies |
+|---|---|
+| **Frontend Framework** | React 19, TypeScript, React Router v7 |
+| **Styling & Theme** | Tailwind CSS v4, Lucide Icons, Custom Cinema Design System |
+| **Media Engine** | Shaka Player 4.12+ (DASH, MP4, HLS, WebVTT, SRT, ASS) |
+| **Data & State** | TanStack React Query v5, Zustand |
+| **Backend & Proxy** | Rust, Axum 0.8, Tower, Tokio, Reqwest |
+| **Metadata Enrichment**| TMDB API v3 (Cast, High-Res Stills, Trailers, Overviews) |
 
-## Privacy
+---
 
-Zero telemetry, analytics, or user tracking. History, favorites, and config remain local.
+## 📄 License
 
-## License
+Dual-licensed under either of:
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE).
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
 
-## Disclaimer
-
-MovieBox-TUI does not host or store media. It plays publicly available streams. Users must comply with local laws.
+at your option.

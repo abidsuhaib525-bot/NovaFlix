@@ -1,5 +1,5 @@
 [package]
-name = "moviebox-web"
+name = "novaflix"
 exclude = [
     "docs/",
     "Formula/",
@@ -18,10 +18,10 @@ exclude = [
 ]
 version = "0.2.0"
 edition = "2024"
-description = "Web interface to find, download, and stream movies, TV shows, and live TV."
-repository = "https://github.com/mesamirh/MovieBox-Tui"
+description = "Modern cinema-grade web streaming platform with ultra-low latency, multi-source resolution switching, and resilient media playback."
+repository = "https://github.com/abidsuhaib525-bot/NovaFlix"
 license = "MIT OR Apache-2.0"
-keywords = ["web", "moviebox", "streaming", "movies", "server"]
+keywords = ["web", "novaflix", "streaming", "movies", "shaka-player"]
 categories = ["web-programming::http-server", "multimedia"]
 readme = "README.md"
 rust-version = "1.90.0"
