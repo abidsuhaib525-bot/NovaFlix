@@ -269,7 +269,32 @@ impl MovieBoxService {
         episode: usize,
     ) -> Result<Vec<crate::providers::models::Release>, ProviderError> {
         use crate::providers::ReleaseProvider;
-        self.client.episode_streams(subject_id, season, episode).await
+        let releases = self.client.episode_streams(subject_id, season, episode).await?;
+        if !releases.is_empty() {
+            return Ok(releases);
+        }
+
+        // Dub fallback: if the requested ID yielded 0 releases, check if any
+        // sibling dub ID for this title provides playable streams.
+        if let Ok(details) = self.client.get_details(subject_id).await {
+            if let Ok(media_details) =
+                crate::providers::moviebox::adapt::moviebox_details_json_to_media_details(&details)
+            {
+                for sibling_id in media_details.sibling_ids() {
+                    if sibling_id != subject_id {
+                        if let Ok(fallback) =
+                            self.client.episode_streams(&sibling_id, season, episode).await
+                        {
+                            if !fallback.is_empty() {
+                                return Ok(fallback);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(releases)
     }
 
     /// Turn a chosen release into something the playback proxy can consume.

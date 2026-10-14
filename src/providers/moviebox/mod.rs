@@ -78,6 +78,9 @@ impl crate::providers::ReleaseProvider for client::MovieBoxClient {
             )
         );
 
+        let play_info_err = play_info_res.as_ref().err().map(|e| e.to_string());
+        let resources_err = resources_res.as_ref().err().map(|e| e.to_string());
+
         let mut releases = Vec::new();
         let mut seen_urls = std::collections::HashSet::new();
 
@@ -127,9 +130,10 @@ impl crate::providers::ReleaseProvider for client::MovieBoxClient {
         }
 
         if releases.is_empty() {
-            return Err(ProviderError::Unavailable(
-                "No stream sources available".to_string(),
-            ));
+            if let (Some(err1), Some(_)) = (play_info_err, resources_err) {
+                return Err(ProviderError::Network(err1));
+            }
+            return Ok(Vec::new());
         }
 
         releases.sort_by(|left, right| {

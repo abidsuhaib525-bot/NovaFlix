@@ -362,9 +362,14 @@ function PlayerStage({
           title="No playable source"
           hint="This title has no stream right now. Try a different episode or provider."
           action={
-            <Link to={paths.title(provider, id)} className="text-accent underline">
-              Back to details
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                to={paths.title(provider, id)}
+                className="rounded-full bg-accent px-5 py-2 text-[12.5px] font-semibold text-accent-contrast transition hover:bg-accent-hover"
+              >
+                Back to details
+              </Link>
+            </div>
           }
         />
       </div>
