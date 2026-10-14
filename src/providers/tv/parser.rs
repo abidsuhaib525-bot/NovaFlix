@@ -100,7 +100,7 @@ impl M3UParser {
                 .map_err(|error| format!("failed to read playlist file {}: {error}", trimmed))?
         };
 
-        let channels = self.parse_m3u(&content);
+        let channels = self.parse_m3u_with_url(&content, Some(trimmed));
         if is_remote && channels.is_empty() {
             let file_path = self.cache_dir.join(cache_filename(trimmed));
             let _ = tokio::fs::remove_file(&file_path).await;
@@ -114,7 +114,7 @@ impl M3UParser {
             if fresh.len() > MAX_PLAYLIST_BYTES {
                 return Err("remote playlist exceeds maximum 15MB size limit".into());
             }
-            let fresh_channels = self.parse_m3u(&fresh);
+            let fresh_channels = self.parse_m3u_with_url(&fresh, Some(trimmed));
             if fresh_channels.is_empty() {
                 return Ok(fresh_channels);
             }
@@ -125,6 +125,11 @@ impl M3UParser {
     }
 
     pub fn parse_m3u(&self, content: &str) -> Vec<Channel> {
+        self.parse_m3u_with_url(content, None)
+    }
+
+    pub fn parse_m3u_with_url(&self, content: &str, url_hint: Option<&str>) -> Vec<Channel> {
+        let fallback_group = url_hint.and_then(infer_group_from_url);
         let estimated = content.as_bytes().iter().filter(|&&b| b == b'\n').count() / 2;
         let mut channels = Vec::with_capacity(estimated.max(16));
         let mut current_channel = Channel::default();
@@ -146,7 +151,7 @@ impl M3UParser {
                 }
                 let group_title = extract_attr_slice(line, "group-title");
                 if !group_title.is_empty() {
-                    current_channel.group = group_title.to_string();
+                    current_channel.group = normalize_group_title(group_title, fallback_group.as_deref());
                 }
 
                 if let Some(idx) = find_extinf_title_comma(line) {
@@ -155,6 +160,11 @@ impl M3UParser {
             } else if !line.starts_with('#') {
                 current_channel.stream_url = line.to_string();
                 current_channel.url = line.to_string();
+                if current_channel.group.is_empty() {
+                    if let Some(ref fb) = fallback_group {
+                        current_channel.group = fb.clone();
+                    }
+                }
                 if current_channel.id.is_empty() {
                     current_channel.id = current_channel.name.clone();
                     current_channel.tvg_id = Some(current_channel.name.clone());
@@ -165,6 +175,45 @@ impl M3UParser {
 
         channels
     }
+}
+
+pub fn normalize_group_title(group_title: &str, fallback: Option<&str>) -> String {
+    let token = group_title
+        .split(';')
+        .next()
+        .map(str::trim)
+        .unwrap_or("");
+    if !token.is_empty() {
+        return clean_category_name(token);
+    }
+    if let Some(fb) = fallback {
+        return clean_category_name(fb);
+    }
+    "General".to_string()
+}
+
+pub fn clean_category_name(name: &str) -> String {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return "General".to_string();
+    }
+    let mut chars = trimmed.chars();
+    match chars.next() {
+        None => "General".to_string(),
+        Some(f) if f.is_lowercase() => f.to_uppercase().collect::<String>() + chars.as_str(),
+        Some(_) => trimmed.to_string(),
+    }
+}
+
+pub fn infer_group_from_url(url: &str) -> Option<String> {
+    let lower = url.to_ascii_lowercase();
+    if lower.contains("/categories/") || lower.contains("/category/") {
+        let filename = lower.rsplit('/').next()?.split('.').next()?;
+        if !filename.is_empty() {
+            return Some(clean_category_name(filename));
+        }
+    }
+    None
 }
 
 fn extract_attr_slice<'a>(line: &'a str, attr_name: &str) -> &'a str {
@@ -290,6 +339,23 @@ http://example.com/movie.m3u8
         assert_eq!(
             channels[0].stream_url,
             "https://live.example.com/sports.m3u8"
+        );
+    }
+
+    #[test]
+    fn test_normalize_group_title_and_infer_category() {
+        assert_eq!(normalize_group_title("Entertainment;Family;General", None), "Entertainment");
+        assert_eq!(normalize_group_title("Movies;Series", None), "Movies");
+        assert_eq!(normalize_group_title("news;live", None), "News");
+        assert_eq!(normalize_group_title("", Some("Animation")), "Animation");
+
+        assert_eq!(
+            infer_group_from_url("https://iptv-org.github.io/iptv/categories/movies.m3u"),
+            Some("Movies".to_string())
+        );
+        assert_eq!(
+            infer_group_from_url("https://iptv-org.github.io/iptv/categories/news.m3u"),
+            Some("News".to_string())
         );
     }
 }

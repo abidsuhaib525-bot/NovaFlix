@@ -199,6 +199,7 @@ export const api = {
   addTvPlaylist: (source: string) => post<{ ok: true }>('/api/tv/playlists', { source }),
   removeTvPlaylist: (index: number) => del<{ ok: true }>(`/api/tv/playlists/${index}`),
   tvChannels: (playlist?: string) => get<TvChannel[]>('/api/tv/channels', { playlist }),
+  tvStreamUrl: (url: string) => `/api/tv/stream?url=${encodeURIComponent(url)}`,
 
   /* Addons --------------------------------------------------------------- */
   addons: () => get<InstalledAddon[]>('/api/addons'),

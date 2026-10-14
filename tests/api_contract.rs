@@ -91,6 +91,7 @@ const FRONTEND_ROUTES: &[Case] = &[
     (Method::DELETE, "/favorites", "store-backed"),
     (Method::GET, "/tv/playlists", "store-backed"),
     (Method::GET, "/tv/channels", "config-only"),
+    (Method::GET, "/tv/stream", "url required"),
     (Method::GET, "/addons", "config-backed"),
     (Method::POST, "/addons", "`manifest_url` required"),
     (Method::GET, "/downloads", "in-memory"),

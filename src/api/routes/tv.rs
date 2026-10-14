@@ -4,7 +4,10 @@
 //! grouped because they are both "extra content sources" rather than part of the
 //! movie catalogue path.
 
+use axum::body::Body;
 use axum::extract::{Path, Query, State};
+use axum::http::{header, HeaderMap, HeaderValue, StatusCode};
+use axum::response::Response;
 use axum::routing::{delete, get, post};
 use axum::Json;
 use serde::{Deserialize, Serialize};
@@ -29,6 +32,7 @@ pub fn router() -> axum::Router<AppState> {
         .route("/tv/playlists", get(list_playlists).post(add_playlist))
         .route("/tv/playlists/{index}", delete(remove_playlist))
         .route("/tv/channels", get(get_channels))
+        .route("/tv/stream", get(proxy_tv_stream).options(tv_stream_options))
         .route("/tv/refresh", post(refresh_channels))
         .route("/addons", get(list_addons).post(install_addon))
         .route("/addons/catalog", get(addon_catalog))
@@ -51,10 +55,8 @@ pub struct TvSettings {
 }
 
 pub const DEFAULT_IPTV_PLAYLISTS: &[&str] = &[
+    "https://iptv-org.github.io/iptv/index.category.m3u",
     "https://iptv-org.github.io/iptv/languages/eng.m3u",
-    "https://iptv-org.github.io/iptv/categories/news.m3u",
-    "https://iptv-org.github.io/iptv/categories/movies.m3u",
-    "https://iptv-org.github.io/iptv/categories/animation.m3u",
 ];
 
 /// Load the playlist configuration, tolerating an unreadable file.
@@ -205,6 +207,20 @@ async fn get_channels(
         }
     }
 
+    let mut seen = std::collections::HashSet::new();
+    channels.retain(|c| {
+        let key = if !c.stream_url.is_empty() {
+            c.stream_url.as_str()
+        } else {
+            c.url.as_str()
+        };
+        if key.is_empty() {
+            true
+        } else {
+            seen.insert(key.to_string())
+        }
+    });
+
     Ok(Json(channels))
 }
 
@@ -238,6 +254,213 @@ async fn refresh_channels(State(state): State<AppState>) -> ApiResult<Json<Refre
         channels: total,
         failed_playlists: failed,
     }))
+}
+
+/// Query parameters for `GET /api/tv/stream`.
+#[derive(Debug, Default, Deserialize)]
+pub struct TvStreamQuery {
+    #[serde(default)]
+    pub url: Option<String>,
+}
+
+/// Options handler for `/api/tv/stream` to answer preflight requests cleanly.
+async fn tv_stream_options() -> Response {
+    let mut response = Response::new(Body::empty());
+    *response.status_mut() = StatusCode::OK;
+    let h = response.headers_mut();
+    h.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+    h.insert(header::ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static("GET, HEAD, OPTIONS"));
+    h.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, HeaderValue::from_static("*"));
+    response
+}
+
+/// Dedicated live TV stream proxy.
+///
+/// IPTV channels come from thousands of external hosts with no CORS headers and
+/// often mixed-content HTTP protocols. This proxy acts as a secure, CORS-enabled
+/// bridge that rewrites HLS manifests and proxies segments with byte-range support.
+pub async fn proxy_tv_stream(
+    State(state): State<AppState>,
+    Query(query): Query<TvStreamQuery>,
+    headers: HeaderMap,
+) -> Response {
+    let Some(target_url) = query.url.map(|s| s.trim().to_string()).filter(|s| !s.is_empty()) else {
+        let mut r = Response::new(Body::from("`url` query parameter is required"));
+        *r.status_mut() = StatusCode::BAD_REQUEST;
+        r.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+        return r;
+    };
+
+    if !crate::net::is_http_url(&target_url) {
+        let mut r = Response::new(Body::from("`url` must be an absolute http(s) URL"));
+        *r.status_mut() = StatusCode::BAD_REQUEST;
+        r.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+        return r;
+    }
+
+    if let Some(host) = crate::util::url::extract_host_authority(&target_url) {
+        if crate::util::url::is_private_or_local_host(&host) {
+            let mut r = Response::new(Body::from("Access to private hosts is forbidden"));
+            *r.status_mut() = StatusCode::FORBIDDEN;
+            r.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+            return r;
+        }
+    }
+
+    let mut req = state.http.get(&target_url)
+        .header(reqwest::header::USER_AGENT, crate::net::DEFAULT_BROWSER_USER_AGENT)
+        .header(reqwest::header::ACCEPT, "*/*");
+
+    if let Some(range) = headers.get(header::RANGE).and_then(|v| v.to_str().ok()) {
+        req = req.header(reqwest::header::RANGE, range);
+    }
+
+    let res = match req.send().await {
+        Ok(res) => res,
+        Err(err) => {
+            log::warn!(
+                "tv stream fetch failed for {}: {err}",
+                crate::logging::sanitize_url(&target_url)
+            );
+            let mut r = Response::new(Body::from(format!("Upstream fetch failed: {err}")));
+            *r.status_mut() = StatusCode::BAD_GATEWAY;
+            r.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+            return r;
+        }
+    };
+
+    let status = res.status();
+    if !status.is_success() && status != StatusCode::PARTIAL_CONTENT {
+        let mut r = Response::new(Body::from(format!("Upstream returned {}", status.as_u16())));
+        *r.status_mut() = status;
+        r.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+        return r;
+    }
+
+    let final_url = res.url().to_string();
+    let upstream_headers = res.headers().clone();
+    let content_type = upstream_headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+
+    let is_m3u8 = content_type.contains("mpegurl")
+        || content_type.contains("x-mpegurl")
+        || target_url.ends_with(".m3u8")
+        || target_url.contains(".m3u8?")
+        || final_url.ends_with(".m3u8")
+        || final_url.contains(".m3u8?");
+
+    if is_m3u8 {
+        let Ok(bytes) = res.bytes().await else {
+            let mut r = Response::new(Body::from("Failed to read M3U8 body"));
+            *r.status_mut() = StatusCode::BAD_GATEWAY;
+            r.headers_mut().insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+            return r;
+        };
+
+        let text = String::from_utf8_lossy(&bytes);
+        let rewritten = rewrite_tv_m3u8(&text, &final_url);
+        let mut response = Response::new(Body::from(rewritten));
+        *response.status_mut() = StatusCode::OK;
+        let h = response.headers_mut();
+        h.insert(header::CONTENT_TYPE, HeaderValue::from_static("application/vnd.apple.mpegurl"));
+        h.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+        h.insert(header::ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static("GET, HEAD, OPTIONS"));
+        h.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, HeaderValue::from_static("*"));
+        h.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache, no-store, must-revalidate"));
+        return response;
+    }
+
+    // Media chunk or segment (.ts, .aac, .m4s, .mp4, etc.)
+    let mut response = Response::new(Body::from_stream(res.bytes_stream()));
+    *response.status_mut() = status;
+    let h = response.headers_mut();
+    h.insert(header::ACCESS_CONTROL_ALLOW_ORIGIN, HeaderValue::from_static("*"));
+    h.insert(header::ACCESS_CONTROL_ALLOW_METHODS, HeaderValue::from_static("GET, HEAD, OPTIONS"));
+    h.insert(header::ACCESS_CONTROL_ALLOW_HEADERS, HeaderValue::from_static("*"));
+    h.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+
+    if let Some(ct) = upstream_headers.get(header::CONTENT_TYPE) {
+        h.insert(header::CONTENT_TYPE, ct.clone());
+    } else {
+        h.insert(header::CONTENT_TYPE, HeaderValue::from_static("video/mp2t"));
+    }
+    if let Some(cl) = upstream_headers.get(header::CONTENT_LENGTH) {
+        h.insert(header::CONTENT_LENGTH, cl.clone());
+    }
+    if let Some(cr) = upstream_headers.get(header::CONTENT_RANGE) {
+        h.insert(header::CONTENT_RANGE, cr.clone());
+    }
+
+    response
+}
+
+/// Rewrite an HLS playlist so variant streams, keys, maps, and segments route back through `/api/tv/stream`.
+pub fn rewrite_tv_m3u8(playlist: &str, final_url: &str) -> String {
+    let mut out = String::with_capacity(playlist.len() + 1024);
+    for line in playlist.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            out.push('\n');
+            continue;
+        }
+
+        if trimmed.starts_with('#') {
+            out.push_str(&rewrite_tv_tag(trimmed, final_url));
+            out.push('\n');
+            continue;
+        }
+
+        let resolved = resolve_relative_url(final_url, trimmed);
+        let proxied = format!(
+            "/api/tv/stream?url={}",
+            percent_encoding::utf8_percent_encode(&resolved, percent_encoding::NON_ALPHANUMERIC)
+        );
+        out.push_str(&proxied);
+        out.push('\n');
+    }
+    out
+}
+
+fn rewrite_tv_tag(line: &str, final_url: &str) -> String {
+    for attr in ["URI=\"", "uri=\""] {
+        if let Some(pos) = line.find(attr) {
+            let value_start = pos + attr.len();
+            let Some(end_rel) = line[value_start..].find('"') else {
+                continue;
+            };
+            let value_end = value_start + end_rel;
+            let original_uri = &line[value_start..value_end];
+            let resolved = resolve_relative_url(final_url, original_uri);
+            let proxied = format!(
+                "/api/tv/stream?url={}",
+                percent_encoding::utf8_percent_encode(&resolved, percent_encoding::NON_ALPHANUMERIC)
+            );
+            let mut result = String::with_capacity(line.len() + proxied.len());
+            result.push_str(&line[..value_start]);
+            result.push_str(&proxied);
+            result.push_str(&line[value_end..]);
+            return result;
+        }
+    }
+    line.to_string()
+}
+
+pub fn resolve_relative_url(base_url: &str, relative: &str) -> String {
+    if relative.starts_with("http://") || relative.starts_with("https://") {
+        return relative.to_string();
+    }
+    if let Ok(base) = url::Url::parse(base_url) {
+        if let Ok(joined) = base.join(relative) {
+            return joined.to_string();
+        }
+    }
+    if relative.starts_with("//") {
+        return format!("https:{relative}");
+    }
+    relative.to_string()
 }
 
 /// Body of `POST /api/tv/refresh`.
@@ -487,5 +710,31 @@ mod tests {
         // Hand-edited or older files must not fail to parse.
         let parsed: TvSettings = serde_json::from_str("{}").unwrap();
         assert!(parsed.playlists.is_empty());
+    }
+
+    #[test]
+    fn test_resolve_relative_url() {
+        assert_eq!(
+            resolve_relative_url("https://cdn.example.com/hls/master.m3u8", "stream1.m3u8"),
+            "https://cdn.example.com/hls/stream1.m3u8"
+        );
+        assert_eq!(
+            resolve_relative_url("https://cdn.example.com/hls/master.m3u8", "/other/stream2.m3u8"),
+            "https://cdn.example.com/other/stream2.m3u8"
+        );
+        assert_eq!(
+            resolve_relative_url("https://cdn.example.com/hls/master.m3u8", "https://other.com/seg.ts"),
+            "https://other.com/seg.ts"
+        );
+    }
+
+    #[test]
+    fn test_rewrite_tv_m3u8() {
+        let manifest = "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1280000\nvariant.m3u8\n#EXT-X-KEY:METHOD=AES-128,URI=\"key.bin\"\nseg1.ts\n";
+        let rewritten = rewrite_tv_m3u8(manifest, "https://cdn.example.com/live/index.m3u8");
+        assert!(rewritten.contains("/api/tv/stream?url="));
+        assert!(rewritten.contains("https%3A%2F%2Fcdn%2Eexample%2Ecom%2Flive%2Fvariant%2Em3u8"));
+        assert!(rewritten.contains("https%3A%2F%2Fcdn%2Eexample%2Ecom%2Flive%2Fkey%2Ebin"));
+        assert!(rewritten.contains("https%3A%2F%2Fcdn%2Eexample%2Ecom%2Flive%2Fseg1%2Ets"));
     }
 }

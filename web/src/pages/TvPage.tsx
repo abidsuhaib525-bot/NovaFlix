@@ -44,6 +44,7 @@ const IPTV_ORG_PRESETS = [
 export function TvPage() {
   const playlists = useQuery({ queryKey: ['tv', 'playlists'] as const, queryFn: api.tvPlaylists });
   const [playlist, setPlaylist] = useState<string | undefined>(undefined);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [filter, setFilter] = useState('');
   const [limit, setLimit] = useState(PAGE);
   const [activeChannel, setActiveChannel] = useState<TvChannel | null>(null);
@@ -72,18 +73,77 @@ export function TvPage() {
     staleTime: 60_000,
   });
 
+  const categoriesWithCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const c of channels.data ?? []) {
+      const g = c.group?.trim() || 'General';
+      counts.set(g, (counts.get(g) || 0) + 1);
+    }
+    return counts;
+  }, [channels.data]);
+
+  const displayCategories = useMemo(() => {
+    const canonicalOrder = [
+      'Movies',
+      'News',
+      'Entertainment',
+      'Animation',
+      'Sports',
+      'Music',
+      'Documentary',
+      'Comedy',
+      'Kids',
+      'Family',
+      'General',
+    ];
+    const present = new Set(categoriesWithCounts.keys());
+    const ordered: string[] = ['All'];
+    for (const cat of canonicalOrder) {
+      if (present.has(cat)) {
+        ordered.push(cat);
+        present.delete(cat);
+      }
+    }
+    const remaining = Array.from(present).sort();
+    return [...ordered, ...remaining];
+  }, [categoriesWithCounts]);
+
   const visible = useMemo(() => {
     const needle = filter.trim().toLowerCase();
     const all = channels.data ?? [];
-    const matched = needle
-      ? all.filter(
-          (channel) =>
-            channel.name.toLowerCase().includes(needle) ||
-            channel.group?.toLowerCase().includes(needle),
-        )
-      : all;
+    let matched = all;
+
+    if (selectedCategory !== 'All') {
+      matched = matched.filter(
+        (channel) =>
+          (channel.group?.trim() || 'General').toLowerCase() ===
+          selectedCategory.toLowerCase(),
+      );
+    }
+
+    if (needle) {
+      matched = matched.filter(
+        (channel) =>
+          channel.name.toLowerCase().includes(needle) ||
+          channel.group?.toLowerCase().includes(needle),
+      );
+    }
+
+    // Sort: prioritize working non-geo-blocked channels and channels with logos
+    matched = [...matched].sort((a, b) => {
+      const aGeo = a.name.includes('[Geo-blocked]');
+      const bGeo = b.name.includes('[Geo-blocked]');
+      if (aGeo !== bGeo) return aGeo ? 1 : -1;
+
+      const aLogo = Boolean(a.logo && a.logo.trim());
+      const bLogo = Boolean(b.logo && b.logo.trim());
+      if (aLogo !== bLogo) return bLogo ? 1 : -1;
+
+      return a.name.localeCompare(b.name);
+    });
+
     return matched.slice(0, limit);
-  }, [channels.data, filter, limit]);
+  }, [channels.data, filter, limit, selectedCategory]);
 
   /**
    * Channels, bucketed by group.
@@ -95,7 +155,7 @@ export function TvPage() {
   const groups = useMemo(() => {
     const buckets = new Map<string, typeof visible>();
     for (const channel of visible) {
-      const key = channel.group?.trim() || 'Ungrouped';
+      const key = channel.group?.trim() || 'General';
       const bucket = buckets.get(key);
       if (bucket) bucket.push(channel);
       else buckets.set(key, [channel]);
@@ -113,7 +173,7 @@ export function TvPage() {
         action={<PlaylistControls />}
       />
 
-      <div className="mb-6 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <input
           type="search"
           value={filter}
@@ -129,7 +189,10 @@ export function TvPage() {
         {(playlists.data?.length ?? 0) > 0 && (
           <select
             value={playlist ?? ''}
-            onChange={(event) => setPlaylist(event.target.value || undefined)}
+            onChange={(event) => {
+              setPlaylist(event.target.value || undefined);
+              setSelectedCategory('All');
+            }}
             aria-label="Playlist"
             className="rounded-full border border-border-default bg-bg-surface px-4 py-2.5 text-[13px] text-fg-default outline-none transition hover:border-border-strong focus:border-accent"
           >
@@ -142,6 +205,44 @@ export function TvPage() {
           </select>
         )}
       </div>
+
+      {/* Category Navigation Pills */}
+      {total > 0 && displayCategories.length > 1 && (
+        <div className="mb-6 flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+          {displayCategories.map((cat) => {
+            const count = cat === 'All' ? total : (categoriesWithCounts.get(cat) || 0);
+            const isSelected = selectedCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => {
+                  setSelectedCategory(cat);
+                  setLimit(PAGE);
+                }}
+                className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-medium transition cursor-pointer ${
+                  isSelected
+                    ? 'bg-accent text-accent-contrast shadow-sm'
+                    : 'surface text-fg-muted hover:border-accent hover:text-fg-default'
+                }`}
+              >
+                <span>{cat}</span>
+                {count > 0 && (
+                  <span
+                    className={`rounded-full px-1.5 py-0.2 text-[10px] font-semibold ${
+                      isSelected
+                        ? 'bg-black/20 text-accent-contrast'
+                        : 'bg-white/10 text-fg-subtle'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {channels.isPending ? (
         <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
@@ -176,29 +277,30 @@ export function TvPage() {
               </h2>
               <ul className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {list.map((channel) => (
-                  <li key={`${channel.tvg_id ?? channel.id ?? ''}:${channel.name}`}>
+                  <li key={`${channel.tvg_id ?? channel.id ?? ''}:${channel.name}:${channel.stream_url}`}>
                     <button
                       type="button"
                       onClick={() => setActiveChannel(channel)}
-                      className="surface flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left transition hover:border-accent cursor-pointer group"
+                      className="surface flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition hover:border-accent cursor-pointer group"
                     >
-                      {channel.logo ? (
-                        <img
-                          src={`/api/poster?url=${encodeURIComponent(channel.logo)}`}
-                          alt=""
-                          loading="lazy"
-                          decoding="async"
-                          className="size-6 shrink-0 rounded object-contain"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <Radio className="size-4 shrink-0 text-fg-subtle group-hover:text-accent transition" aria-hidden="true" />
-                      )}
-                      <span className="line-clamp-1 text-[13px] text-fg-default group-hover:text-accent transition">
-                        {channel.name}
-                      </span>
+                      <ChannelLogo channel={channel} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="line-clamp-1 text-[13px] text-fg-default group-hover:text-accent transition font-medium">
+                            {channel.name}
+                          </span>
+                          {channel.name.includes('[Geo-blocked]') && (
+                            <span className="shrink-0 rounded bg-amber-500/15 px-1 py-0.2 text-[9px] font-semibold text-amber-400">
+                              Geo
+                            </span>
+                          )}
+                        </div>
+                        {channel.group && (
+                          <span className="line-clamp-1 text-[11px] text-fg-subtle">
+                            {channel.group}
+                          </span>
+                        )}
+                      </div>
                     </button>
                   </li>
                 ))}
@@ -229,6 +331,48 @@ export function TvPage() {
   );
 }
 
+function ChannelLogo({ channel }: { channel: TvChannel }) {
+  const [stage, setStage] = useState<'direct' | 'proxy' | 'fallback'>('direct');
+  const rawLogo = channel.logo?.trim();
+  const initial = (channel.name || 'TV').trim().charAt(0).toUpperCase();
+
+  useEffect(() => {
+    setStage('direct');
+  }, [rawLogo]);
+
+  if (!rawLogo || stage === 'fallback') {
+    return (
+      <div className="flex size-7 shrink-0 items-center justify-center rounded bg-white/10 font-bold text-[12px] text-white/80 group-hover:bg-accent group-hover:text-accent-contrast transition select-none">
+        {initial}
+      </div>
+    );
+  }
+
+  const src = stage === 'direct'
+    ? rawLogo
+    : `/api/poster?url=${encodeURIComponent(rawLogo)}`;
+
+  return (
+    <div className="flex size-7 shrink-0 items-center justify-center rounded bg-black/40 overflow-hidden p-0.5 border border-white/10">
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        className="size-full object-contain"
+        onError={() => {
+          if (stage === 'direct') {
+            setStage('proxy');
+          } else {
+            setStage('fallback');
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 function TvPlayerModal({
   channel,
   onClose,
@@ -239,7 +383,11 @@ function TvPlayerModal({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [loading, setLoading] = useState(true);
   const [errorText, setErrorText] = useState<string | null>(null);
-  const streamUrl = channel.url || channel.stream_url;
+  const [useDirect, setUseDirect] = useState(false);
+
+  const rawStreamUrl = channel.url || channel.stream_url;
+  const proxiedStreamUrl = rawStreamUrl ? api.tvStreamUrl(rawStreamUrl) : '';
+  const streamUrl = useDirect ? rawStreamUrl : (proxiedStreamUrl || rawStreamUrl);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -375,6 +523,11 @@ function TvPlayerModal({
                 {channel.group}
               </span>
             )}
+            {channel.name.includes('[Geo-blocked]') && (
+              <span className="rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+                Geo-restricted
+              </span>
+            )}
           </div>
           <button
             type="button"
@@ -410,18 +563,33 @@ function TvPlayerModal({
               <p className="max-w-md text-[12.5px] text-white/60 leading-relaxed">
                 {errorText}. Live streams can go offline temporarily or be geo-restricted.
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setErrorText(null);
-                  setLoading(true);
-                  const v = videoRef.current;
-                  if (v) v.load();
-                }}
-                className="mt-2 rounded-full bg-accent px-5 py-2 text-[12px] font-bold text-accent-contrast transition hover:bg-accent-hover cursor-pointer"
-              >
-                Retry Stream
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setErrorText(null);
+                    setLoading(true);
+                    const v = videoRef.current;
+                    if (v) v.load();
+                  }}
+                  className="rounded-full bg-accent px-5 py-2 text-[12px] font-bold text-accent-contrast transition hover:bg-accent-hover cursor-pointer"
+                >
+                  Retry Stream
+                </button>
+                {!useDirect && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorText(null);
+                      setLoading(true);
+                      setUseDirect(true);
+                    }}
+                    className="rounded-full bg-white/10 px-5 py-2 text-[12px] font-medium text-white transition hover:bg-white/20 cursor-pointer"
+                  >
+                    Try Direct Stream
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
