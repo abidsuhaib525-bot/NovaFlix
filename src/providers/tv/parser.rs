@@ -138,6 +138,7 @@ impl M3UParser {
                 let tvg_id = extract_attr_slice(line, "tvg-id");
                 if !tvg_id.is_empty() {
                     current_channel.id = tvg_id.to_string();
+                    current_channel.tvg_id = Some(tvg_id.to_string());
                 }
                 let tvg_logo = extract_attr_slice(line, "tvg-logo");
                 if !tvg_logo.is_empty() {
@@ -153,8 +154,10 @@ impl M3UParser {
                 }
             } else if !line.starts_with('#') {
                 current_channel.stream_url = line.to_string();
+                current_channel.url = line.to_string();
                 if current_channel.id.is_empty() {
                     current_channel.id = current_channel.name.clone();
+                    current_channel.tvg_id = Some(current_channel.name.clone());
                 }
                 channels.push(std::mem::take(&mut current_channel));
             }

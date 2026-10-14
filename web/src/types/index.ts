@@ -238,11 +238,13 @@ export interface FavoriteItem {
 /* -------------------------------------------------------------------------- */
 
 export interface TvChannel {
+  id?: string;
   name: string;
   url: string;
+  stream_url?: string;
   group: string | null;
   logo: string | null;
-  tvg_id: string | null;
+  tvg_id?: string | null;
 }
 
 export interface InstalledAddon {

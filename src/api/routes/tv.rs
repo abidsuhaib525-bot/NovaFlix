@@ -50,6 +50,13 @@ pub struct TvSettings {
     pub show_logos: bool,
 }
 
+pub const DEFAULT_IPTV_PLAYLISTS: &[&str] = &[
+    "https://iptv-org.github.io/iptv/languages/eng.m3u",
+    "https://iptv-org.github.io/iptv/categories/news.m3u",
+    "https://iptv-org.github.io/iptv/categories/movies.m3u",
+    "https://iptv-org.github.io/iptv/categories/animation.m3u",
+];
+
 /// Load the playlist configuration, tolerating an unreadable file.
 async fn load_tv_settings(state: &AppState) -> TvSettings {
     // A missing or unreadable document is not an error: TV is an optional
@@ -63,7 +70,12 @@ async fn load_tv_settings(state: &AppState) -> TvSettings {
 
 /// Every configured playlist URL.
 async fn list_playlists(State(state): State<AppState>) -> Json<Vec<String>> {
-    Json(load_tv_settings(&state).await.playlists)
+    let settings = load_tv_settings(&state).await;
+    if settings.playlists.is_empty() {
+        Json(DEFAULT_IPTV_PLAYLISTS.iter().map(|s| s.to_string()).collect())
+    } else {
+        Json(settings.playlists)
+    }
 }
 
 /// Body of `POST /api/tv/playlists`.
@@ -156,15 +168,22 @@ async fn get_channels(
 
     let settings = load_tv_settings(&state).await;
 
+    let default_sources: Vec<&str> = DEFAULT_IPTV_PLAYLISTS.to_vec();
+    let effective_playlists: Vec<&str> = if settings.playlists.is_empty() {
+        default_sources
+    } else {
+        settings.playlists.iter().map(String::as_str).collect()
+    };
+
     let sources: Vec<&str> = match query.playlist.as_deref().map(str::trim) {
         // An empty `?playlist=` means "no filter", not "the playlist named ''".
         Some(wanted) if !wanted.is_empty() => {
-            if !settings.playlists.iter().any(|url| url == wanted) {
+            if !effective_playlists.iter().any(|&url| url == wanted) {
                 return Err(ApiError::NotFound("Unknown playlist".into()));
             }
             vec![wanted]
         }
-        _ => settings.playlists.iter().map(String::as_str).collect(),
+        _ => effective_playlists,
     };
 
     if sources.is_empty() {

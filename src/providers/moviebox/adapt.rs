@@ -123,34 +123,46 @@ pub fn moviebox_subject_json_to_catalog_item(s: &serde_json::Value) -> Option<Ca
 
 pub fn moviebox_search_json_to_catalog(payload: &serde_json::Value) -> Vec<CatalogItem> {
     let mut items = Vec::new();
-    let subjects = payload
+    let mut seen_ids = std::collections::HashSet::new();
+
+    let results = payload
         .get("data")
         .and_then(|d| d.get("results"))
         .or_else(|| payload.get("results"))
-        .and_then(|r| r.as_array())
-        .and_then(|arr| arr.first())
-        .and_then(|first| first.get("subjects"))
-        .and_then(|s| s.as_array());
+        .and_then(|r| r.as_array());
 
-    let subjects_slice = match subjects {
-        Some(s) => s.as_slice(),
-        None => {
-            if let Some(list) = payload
-                .get("data")
-                .and_then(|d| d.get("list"))
-                .or_else(|| payload.get("list"))
-                .and_then(|l| l.as_array())
-            {
-                list.as_slice()
-            } else {
-                &[]
+    if let Some(arr) = results {
+        for entry in arr {
+            if let Some(subjects) = entry.get("subjects").and_then(|s| s.as_array()) {
+                for s in subjects {
+                    if let Some(item) = moviebox_subject_json_to_catalog_item(s) {
+                        if seen_ids.insert(item.id.value.clone()) {
+                            items.push(item);
+                        }
+                    }
+                }
+            } else if let Some(item) = moviebox_subject_json_to_catalog_item(entry) {
+                if seen_ids.insert(item.id.value.clone()) {
+                    items.push(item);
+                }
             }
         }
-    };
+    }
 
-    for s in subjects_slice {
-        if let Some(item) = moviebox_subject_json_to_catalog_item(s) {
-            items.push(item);
+    if items.is_empty() {
+        if let Some(list) = payload
+            .get("data")
+            .and_then(|d| d.get("list"))
+            .or_else(|| payload.get("list"))
+            .and_then(|l| l.as_array())
+        {
+            for s in list {
+                if let Some(item) = moviebox_subject_json_to_catalog_item(s) {
+                    if seen_ids.insert(item.id.value.clone()) {
+                        items.push(item);
+                    }
+                }
+            }
         }
     }
 

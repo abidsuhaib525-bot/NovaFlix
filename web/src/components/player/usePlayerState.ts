@@ -246,8 +246,8 @@ export function usePlayerState({
     (seconds: number) => {
       const video = videoRef.current;
       if (!video) return;
-      const max = Number.isFinite(video.duration) ? video.duration : seconds;
-      video.currentTime = clamp(seconds, 0, max);
+      const dur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : Infinity;
+      video.currentTime = Math.max(0, Math.min(dur, seconds));
     },
     [videoRef],
   );
@@ -255,7 +255,15 @@ export function usePlayerState({
   const seekBy = useCallback(
     (delta: number) => {
       const video = videoRef.current;
-      if (video) video.currentTime = clamp(video.currentTime + delta, 0, video.duration || 0);
+      if (!video) return;
+      const cur = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+      const dur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : Infinity;
+      const target = Math.max(0, Math.min(dur, cur + delta));
+      try {
+        video.currentTime = target;
+      } catch (e) {
+        console.warn('[seekBy error]', e);
+      }
     },
     [videoRef],
   );

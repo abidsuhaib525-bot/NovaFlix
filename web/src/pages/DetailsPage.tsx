@@ -96,7 +96,13 @@ function DetailsView({ provider, id }: { provider: ProviderKind; id: string }) {
         <div className="mb-6 flex items-center gap-2">
           <button
             type="button"
-            onClick={() => nav(-1)}
+            onClick={() => {
+              if (window.history.state && window.history.state.idx > 0) {
+                nav(-1);
+              } else {
+                nav(paths.home());
+              }
+            }}
             className="group inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-[#121218]/90 px-4 py-2 text-[13px] font-semibold text-fg-default shadow-xl backdrop-blur-md transition-all hover:border-accent hover:bg-bg-surface hover:text-accent hover:scale-105 active:scale-95"
             title="Go back"
           >

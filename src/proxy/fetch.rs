@@ -390,6 +390,11 @@ pub fn build_response_headers(
         out.insert(reqwest::header::CONTENT_TYPE, value);
     }
 
+    // Always ensure Accept-Ranges bytes is present so media players can seek
+    out.insert(reqwest::header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+    // Prevent upstream/tower compression from breaking media byte streams & ranges:
+    out.insert(reqwest::header::CONTENT_ENCODING, HeaderValue::from_static("identity"));
+
     out
 }
 

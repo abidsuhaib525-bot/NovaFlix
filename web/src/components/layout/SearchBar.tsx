@@ -81,12 +81,25 @@ export function SearchBar({ className = '' }: { className?: string }) {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
+  // Sync input value with URL when on search page
+  useEffect(() => {
+    if (location.pathname === '/search' || location.pathname.startsWith('/search')) {
+      const searchParams = new URLSearchParams(location.search);
+      const q = searchParams.get('q') ?? '';
+      setText(q);
+    }
+  }, [location.pathname, location.search]);
+
   const submit = (value: string) => {
     const query = value.trim();
     if (!query) return;
     setOpen(false);
     input.current?.blur();
-    navigate(paths.search(query), { replace: location.pathname.startsWith('/search') });
+    const currentParams = new URLSearchParams(location.search);
+    const isSameSearch = location.pathname.startsWith('/search') && currentParams.get('q') === query;
+    if (!isSameSearch) {
+      navigate(paths.search(query));
+    }
   };
 
   return (

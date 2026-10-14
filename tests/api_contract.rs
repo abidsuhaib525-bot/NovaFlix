@@ -207,7 +207,7 @@ async fn call(app: axum::Router, method: &Method, path: &str, body: &str) -> (u1
         .expect("router responded");
 
     let status = response.status().as_u16();
-    let bytes = axum::body::to_bytes(response.into_body(), 256 * 1024)
+    let bytes = axum::body::to_bytes(response.into_body(), 10 * 1024 * 1024)
         .await
         .expect("read body");
 

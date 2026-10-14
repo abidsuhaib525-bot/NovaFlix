@@ -389,9 +389,21 @@ export function Player({
         {onBack && (
           <button
             type="button"
-            onClick={onBack}
+            onClick={() => {
+              const video = videoRef.current;
+              if (video) {
+                try {
+                  video.pause();
+                  video.removeAttribute('src');
+                  video.load();
+                } catch {
+                  /* ignore */
+                }
+              }
+              onBack();
+            }}
             aria-label="Back to details"
-            className="pointer-events-auto inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/70"
+            className="pointer-events-auto inline-flex size-9 shrink-0 items-center justify-center rounded-full bg-black/40 text-white transition hover:bg-black/70 cursor-pointer"
           >
             <ArrowLeft className="size-5" />
           </button>

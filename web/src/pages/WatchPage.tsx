@@ -155,6 +155,40 @@ function WatchInner({
     navigate(paths.watch(p, id, { season: nextSeason, episode: nextEpisodeNumber }));
   };
 
+  const handleBack = () => {
+    const videos = document.querySelectorAll('video');
+    videos.forEach((v) => {
+      try {
+        v.pause();
+        v.removeAttribute('src');
+        v.load();
+      } catch {
+        /* ignore */
+      }
+    });
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate(paths.title(p, id));
+    }
+  };
+
+  // Stop playback immediately on unmount so audio never leaks when navigating away
+  useEffect(() => {
+    return () => {
+      const videos = document.querySelectorAll('video');
+      videos.forEach((v) => {
+        try {
+          v.pause();
+          v.removeAttribute('src');
+          v.load();
+        } catch {
+          /* ignore */
+        }
+      });
+    };
+  }, []);
+
   if (streamingOff) {
     return (
       <div className="flex h-full w-full items-center justify-center bg-black p-6">
@@ -199,7 +233,7 @@ function WatchInner({
         onPlayNext={() => {
           if (nextEpisode) goToEpisode(nextEpisode.season, nextEpisode.episode);
         }}
-        onBack={() => navigate(paths.title(p, id))}
+        onBack={handleBack}
         dubs={details.data?.dubs ?? []}
         onSelectDub={(dub) => {
           if (dub.subject_id && dub.subject_id !== id) {
@@ -718,6 +752,15 @@ function ShakaStage({
 
     return () => {
       cancelled = true;
+      if (video) {
+        try {
+          video.pause();
+          video.removeAttribute('src');
+          video.load();
+        } catch {
+          /* ignore */
+        }
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const instance = player as any;
       if (instance) {

@@ -204,6 +204,7 @@ async fn proxy_segment(
                         .unwrap_or(HeaderValue::from_static("bytes 0-0/0")),
                 );
                 h.insert(header::ACCEPT_RANGES, HeaderValue::from_static("bytes"));
+                h.insert(header::CONTENT_ENCODING, HeaderValue::from_static("identity"));
             }
             res
         }
@@ -340,6 +341,14 @@ fn buffered_response(
     headers.insert(
         header::CACHE_CONTROL,
         HeaderValue::from_static("private, max-age=30"),
+    );
+    headers.insert(
+        header::ACCEPT_RANGES,
+        HeaderValue::from_static("bytes"),
+    );
+    headers.insert(
+        header::CONTENT_ENCODING,
+        HeaderValue::from_static("identity"),
     );
     if let Some((name, value)) = extra
         && let (Ok(n), Ok(v)) = (
