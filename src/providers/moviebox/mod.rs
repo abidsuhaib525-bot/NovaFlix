@@ -1,6 +1,7 @@
 pub mod adapt;
 pub mod client;
 pub mod crypto;
+pub mod h5;
 pub mod session;
 pub mod title;
 
@@ -62,6 +63,21 @@ impl crate::providers::ReleaseProvider for client::MovieBoxClient {
         season: usize,
         episode: usize,
     ) -> Result<Vec<crate::providers::models::Release>, ProviderError> {
+        // 1. Try official Web H5 API gateway first (direct unthrottled CDN MP4 streams, no HMAC signing needed)
+        if let Ok(h5_releases) = h5::fetch_h5_streams(self.http_client(), id, season, episode).await {
+            if !h5_releases.is_empty() {
+                let mut releases = h5_releases;
+                releases.sort_by(|left, right| {
+                    right
+                        .resolution_u64()
+                        .cmp(&left.resolution_u64())
+                        .then_with(|| right.size_bytes.cmp(&left.size_bytes))
+                });
+                return Ok(releases);
+            }
+        }
+
+        // 2. Fall back to mobile BFF play-info & resources
         let (play_info_res, resources_res) = tokio::join!(
             self.get_play_info(id, season, episode),
             self.get_resources(
