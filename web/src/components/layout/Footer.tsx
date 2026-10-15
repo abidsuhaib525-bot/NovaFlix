@@ -52,7 +52,7 @@ export function Footer() {
             <ul className="space-y-2 text-[13px]">
               <li><Link to={paths.downloads()} className="text-fg-subtle hover:text-accent transition">Downloads & Offline</Link></li>
               <li><Link to={paths.library()} className="text-fg-subtle hover:text-accent transition">My Watchlist</Link></li>
-              <li><Link to={paths.tv()} className="text-fg-subtle hover:text-accent transition">Live TV Channels</Link></li>
+              <li><Link to={paths.addons()} className="text-fg-subtle hover:text-accent transition">Addons & Catalogs</Link></li>
               <li><Link to={paths.settings()} className="text-fg-subtle hover:text-accent transition">Settings & Themes</Link></li>
             </ul>
           </div>

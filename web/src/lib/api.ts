@@ -18,7 +18,6 @@ import type {
   Release,
   Settings,
   SubtitleOption,
-  TvChannel,
   WatchHistoryItem,
 } from '@/types';
 
@@ -49,7 +48,12 @@ function qs(params: Query): string {
   return s ? `?${s}` : '';
 }
 
-export const API_BASE = ((import.meta as unknown as { env?: { VITE_API_BASE_URL?: string } }).env?.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+export const API_BASE = (
+  (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE_URL ||
+  (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_URL ||
+  (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_BACKEND_URL ||
+  ''
+).replace(/\/+$/, '');
 
 export function resolveUrl(path: string): string {
   if (!path) return '';
@@ -193,13 +197,6 @@ export const api = {
   toggleFavorite: (item: Partial<FavoriteItem> & { subject_id: string; provider: string }) =>
     post<{ favorite: boolean }>('/api/favorites', item),
   clearFavorites: () => del<{ ok: true }>('/api/favorites'),
-
-  /* TV ------------------------------------------------------------------- */
-  tvPlaylists: () => get<string[]>('/api/tv/playlists'),
-  addTvPlaylist: (source: string) => post<{ ok: true }>('/api/tv/playlists', { source }),
-  removeTvPlaylist: (index: number) => del<{ ok: true }>(`/api/tv/playlists/${index}`),
-  tvChannels: (playlist?: string) => get<TvChannel[]>('/api/tv/channels', { playlist }),
-  tvStreamUrl: (url: string) => `/api/tv/stream?url=${encodeURIComponent(url)}`,
 
   /* Addons --------------------------------------------------------------- */
   addons: () => get<InstalledAddon[]>('/api/addons'),

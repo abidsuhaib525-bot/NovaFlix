@@ -19,6 +19,7 @@ import { ErrorState, SectionHeading, SkeletonRail } from '@/components/common/St
 import { HeroBanner } from '@/components/media/HeroBanner';
 import { PosterCard } from '@/components/media/PosterCard';
 import { Rail } from '@/components/media/Rail';
+import { api } from '@/lib/api';
 import {
   isInProgress,
   progressFraction,
@@ -279,7 +280,7 @@ function CoverImage({ url, alt }: { url: string | null; alt: string }) {
     <div className="relative">
       {url ? (
         <img
-          src={`/api/poster?url=${encodeURIComponent(url)}`}
+          src={api.posterUrl(url)}
           alt={alt}
           loading="lazy"
           decoding="async"

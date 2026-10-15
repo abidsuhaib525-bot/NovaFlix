@@ -21,7 +21,7 @@ const IN_FLIGHT_WAIT: Duration = Duration::from_secs(15);
 /// Max bytes we will buffer for a manifest.
 pub const MAX_MANIFEST_BYTES: usize = 10 * 1024 * 1024;
 /// How many upcoming segments to warm.
-const PREFETCH_LOOKAHEAD: u32 = 3;
+const PREFETCH_LOOKAHEAD: u32 = 4;
 
 /// Build the shared upstream client.
 ///
@@ -31,7 +31,7 @@ const PREFETCH_LOOKAHEAD: u32 = 3;
 pub fn build_client() -> Client {
     crate::net::http_client_builder_base()
         .http1_only()
-        .pool_max_idle_per_host(16)
+        .pool_max_idle_per_host(32)
         .connect_timeout(Duration::from_secs(15))
         .build()
         .unwrap_or_default()

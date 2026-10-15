@@ -27,6 +27,7 @@ import {
 } from '@/hooks/useCatalog';
 import { cleanTitle, describeTitle, formatDuration, formatRelativeTime } from '@/lib/format';
 import { paths, storedTitlePath, storedWatchPath } from '@/lib/routes';
+import { api } from '@/lib/api';
 import type { FavoriteItem, WatchHistoryItem } from '@/types';
 import { notifyError } from '@/store/ui';
 
@@ -184,7 +185,7 @@ function HistoryList({ items, progress = false }: { items: WatchHistoryItem[]; p
           >
             {entry.cover_url && (
               <img
-                src={`/api/poster?url=${encodeURIComponent(entry.cover_url)}`}
+                src={api.posterUrl(entry.cover_url)}
                 alt=""
                 loading="lazy"
                 decoding="async"
@@ -279,7 +280,7 @@ function FavoriteList({ items }: { items: FavoriteItem[] }) {
               <div className="relative">
                 {favorite.cover_url ? (
                   <img
-                    src={`/api/poster?url=${encodeURIComponent(favorite.cover_url)}`}
+                    src={api.posterUrl(favorite.cover_url)}
                     alt=""
                     loading="lazy"
                     decoding="async"

@@ -704,35 +704,45 @@ function ShakaStage({
           console.warn('[UITextDisplayer fallback]', e);
         }
 
-        // Configure Shaka for instant start, network resilience, and automatic retry on packet drops
+        // Configure Shaka for ultra-smooth playback, deep buffering, and resilience against network jitter
         instance.configure({
           streaming: {
             rebufferingGoal: 2,
-            bufferingGoal: 15,
-            bufferBehind: 30,
+            bufferingGoal: 60,
+            bufferBehind: 60,
+            segmentPrefetchLimit: 2,
             stallEnabled: true,
             stallThreshold: 1,
+            stallSkip: 0.1,
             jumpLargeGaps: true,
             inaccurateManifestTolerance: 2,
             retryParameters: {
-              maxAttempts: 6,
-              baseDelay: 1000,
-              backoffFactor: 1.5,
-              fuzzFactor: 0.5,
-              timeout: 15000,
+              maxAttempts: 8,
+              baseDelay: 800,
+              backoffFactor: 1.4,
+              fuzzFactor: 0.3,
+              timeout: 20000,
             },
           },
           manifest: {
             dash: {
               ignoreMinBufferTime: true,
+              autoCorrectDrift: true,
             },
             retryParameters: {
-              maxAttempts: 5,
-              baseDelay: 1000,
-              backoffFactor: 1.5,
-              fuzzFactor: 0.5,
-              timeout: 15000,
+              maxAttempts: 6,
+              baseDelay: 800,
+              backoffFactor: 1.4,
+              fuzzFactor: 0.3,
+              timeout: 20000,
             },
+          },
+          abr: {
+            enabled: true,
+            defaultBandwidthEstimate: 3_000_000,
+            switchInterval: 8,
+            bandwidthUpgradeTarget: 0.85,
+            bandwidthDowngradeTarget: 0.95,
           },
         });
 

@@ -57,7 +57,6 @@ export const paths = {
 
   library: () => '/library',
   downloads: () => '/downloads',
-  tv: () => '/tv',
   addons: () => '/addons',
   settings: () => '/settings',
 } as const;

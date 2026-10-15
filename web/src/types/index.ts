@@ -234,19 +234,8 @@ export interface FavoriteItem {
 }
 
 /* -------------------------------------------------------------------------- */
-/* TV / Addons                                                                */
+/* Addons                                                                     */
 /* -------------------------------------------------------------------------- */
-
-export interface TvChannel {
-  id?: string;
-  name: string;
-  url: string;
-  stream_url?: string;
-  group: string | null;
-  country?: string | null;
-  logo: string | null;
-  tvg_id?: string | null;
-}
 
 export interface InstalledAddon {
   manifest_url: string;

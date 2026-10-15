@@ -107,12 +107,6 @@ export function SettingsPage() {
               tone="danger"
             />
             <Toggle
-              label="Live TV"
-              hint="Show the Live TV section and accept channel playlists."
-              checked={draft.tv_enabled}
-              onChange={(value) => patch('tv_enabled', value)}
-            />
-            <Toggle
               label="Addons"
               hint="Allow external addon manifests to add catalogues."
               checked={draft.addons_enabled}

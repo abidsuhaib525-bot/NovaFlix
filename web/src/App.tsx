@@ -30,7 +30,6 @@ const DownloadsPage = lazy(() =>
   import('@/pages/DownloadsPage').then((m) => ({ default: m.DownloadsPage })),
 );
 const AddonsPage = lazy(() => import('@/pages/AddonsPage').then((m) => ({ default: m.AddonsPage })));
-const TvPage = lazy(() => import('@/pages/TvPage').then((m) => ({ default: m.TvPage })));
 const SettingsPage = lazy(() =>
   import('@/pages/SettingsPage').then((m) => ({ default: m.SettingsPage })),
 );
@@ -132,7 +131,6 @@ export function App() {
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/downloads" element={<DownloadsPage />} />
             <Route path="/addons" element={<AddonsPage />} />
-            <Route path="/tv" element={<TvPage />} />
             <Route path="/settings" element={<SettingsPage />} />
 
             <Route path="*" element={<NotFoundPage />} />

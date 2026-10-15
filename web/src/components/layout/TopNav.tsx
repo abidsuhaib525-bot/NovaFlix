@@ -12,12 +12,12 @@
  * instead of erroring, so a hardcoded copy in the client could rot invisibly.
  */
 
-import { Check, Clapperboard, Download, Heart, Menu, Palette, Puzzle, Settings, Tv, X } from 'lucide-react';
+import { Check, Clapperboard, Download, Heart, Menu, Palette, Puzzle, Settings, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 
 import { SearchBar } from '@/components/layout/SearchBar';
-import { useHomepageTabs, useProviders } from '@/hooks/useCatalog';
+import { useHomepageTabs } from '@/hooks/useCatalog';
 import { formatBytes, formatSpeed } from '@/lib/format';
 import { paths } from '@/lib/routes';
 import { api } from '@/lib/api';
@@ -45,14 +45,12 @@ const NAV_TABS = 4;
 const ACTIONS = [
   { to: paths.library(), label: 'Library', icon: Heart },
   { to: paths.downloads(), label: 'Downloads', icon: Download },
-  { to: paths.tv(), label: 'Live TV', icon: Tv },
   { to: paths.addons(), label: 'Addons', icon: Puzzle },
   { to: paths.settings(), label: 'Settings', icon: Settings },
 ] as const;
 
 export function TopNav() {
   const { data: tabs = [] } = useHomepageTabs();
-  const { data: providers } = useProviders();
   const location = useLocation();
 
   const navOpen = useUiStore((state) => state.navOpen);
@@ -78,17 +76,7 @@ export function TopNav() {
   // the user just chose, hiding the result of their click.
   useEffect(() => setNavOpen(false), [location.pathname, setNavOpen]);
 
-  /**
-   * Live TV is hidden when every provider behind it is off.
-   *
-   * Only hidden once the provider list has actually loaded. Treating "not
-   * fetched yet" as "all disabled" would make the link blink out of the header on
-   * every fresh load, which is worse than showing a link that turns out to have
-   * nothing behind it.
-   */
-  const tvOn = providers === undefined || providers.some((provider) => provider.enabled);
-
-  const actions = tvOn ? ACTIONS : ACTIONS.filter((action) => action.to !== paths.tv());
+  const actions = ACTIONS;
 
   // Make sure Anime (id: '8') is included in the top navigation bar along with For You, Movies, TV Series
   const navTabs = (() => {

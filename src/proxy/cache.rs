@@ -15,7 +15,7 @@ type CachedSegment = (String, String, Arc<[u8]>);
 /// Upper bound on cached segments. Each is capped at
 /// [`MAX_SEGMENT_BYTES`], so the worst case is ~384 MB — tuned to hold roughly
 /// 20 seconds of a multi-bitrate DASH stream.
-const MAX_CACHED_SEGMENTS: usize = 24;
+const MAX_CACHED_SEGMENTS: usize = 64;
 /// Reject rather than cache anything larger than this.
 pub const MAX_SEGMENT_BYTES: usize = 16 * 1024 * 1024;
 /// Size of each parallel range request when assembling a large segment.

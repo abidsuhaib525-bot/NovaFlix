@@ -39,21 +39,6 @@ export function PosterCard({
 
   return (
     <article className={`card-hover group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0c0d14]/90 shadow-[0_8px_24px_rgba(0,0,0,0.6)] backdrop-blur-md transition-all duration-300 hover:border-accent/40 hover:shadow-[0_16px_40px_rgba(0,0,0,0.9),0_0_24px_var(--accent-subtle)] ${className}`}>
-      {/* Netflix-style Top 10 Giant Rank Number */}
-      {rank !== undefined && rank <= 10 && (
-        <div className="pointer-events-none absolute -bottom-5 -left-1.5 z-20 select-none">
-          <span
-            className="font-display text-[75px] sm:text-[95px] font-black leading-none tracking-tighter text-black/90 drop-shadow-[0_4px_12px_rgba(0,0,0,0.95)]"
-            style={{
-              WebkitTextStroke: '3px rgba(255, 255, 255, 0.9)',
-              textShadow: '0 8px 24px rgba(0,0,0,0.95)',
-            }}
-          >
-            {rank}
-          </span>
-        </div>
-      )}
-
       <div className="relative aspect-poster w-full overflow-hidden bg-black/40">
         <Link
           to={details}
@@ -74,20 +59,26 @@ export function PosterCard({
 
         {/* Top Badges */}
         <div className="pointer-events-none absolute left-2.5 top-2.5 z-10 flex flex-wrap items-center gap-1.5 max-w-[85%]">
+          {rank !== undefined && rank <= 10 && (
+            <span className="flex items-center gap-1 rounded-md bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 px-2 py-0.5 text-[10.5px] font-black text-black shadow-md shadow-amber-500/20">
+              <span className="text-[8.5px] font-extrabold uppercase tracking-wider opacity-85">TOP</span>
+              <span>#{rank}</span>
+            </span>
+          )}
           {series ? (
-            <span className="flex items-center gap-1 rounded-full border border-white/20 bg-black/85 px-2.5 py-0.5 text-[10.5px] font-bold text-white shadow-md backdrop-blur-md">
+            <span className="flex items-center gap-1 rounded-full border border-white/20 bg-black/85 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-md backdrop-blur-md">
               <Tv className="size-3 text-accent" aria-hidden="true" />
               {item.season_count ? `S${item.season_count}` : 'Series'}
             </span>
           ) : (
-            <span className="rounded-full border border-white/15 bg-black/80 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-white/90 shadow-md backdrop-blur-md">
+            <span className="rounded-full border border-white/15 bg-black/80 px-2 py-0.5 text-[9.5px] font-black uppercase tracking-wider text-white/90 shadow-md backdrop-blur-md">
               Movie
             </span>
           )}
 
           {/* Edition / Dub tag if present (e.g., Hindi, English, S1-S2) */}
           {editionTags.length > 0 && (
-            <span className="rounded-full border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[10px] font-bold text-amber-200 shadow-md backdrop-blur-md">
+            <span className="rounded-full border border-amber-500/40 bg-amber-500/20 px-2 py-0.5 text-[9.5px] font-bold text-amber-200 shadow-md backdrop-blur-md">
               {editionTags[0]}
             </span>
           )}
