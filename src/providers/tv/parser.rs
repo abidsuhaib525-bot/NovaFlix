@@ -172,8 +172,23 @@ impl M3UParser {
                     }
                 }
             } else if !line.starts_with('#') {
-                current_channel.stream_url = line.to_string();
-                current_channel.url = line.to_string();
+                let trimmed_url = line.trim();
+                let lower_url = trimmed_url.to_ascii_lowercase();
+                // Reject non-streaming web pages that cannot be played in HTML5/HLS players
+                if lower_url.contains("youtube.com")
+                    || lower_url.contains("youtu.be")
+                    || lower_url.contains("twitch.tv")
+                    || lower_url.contains("dailymotion.com")
+                    || lower_url.ends_with(".html")
+                    || lower_url.ends_with(".htm")
+                    || !crate::net::is_http_url(trimmed_url)
+                {
+                    current_channel = Channel::default();
+                    continue;
+                }
+
+                current_channel.stream_url = trimmed_url.to_string();
+                current_channel.url = trimmed_url.to_string();
                 if current_channel.group.is_empty() {
                     if let Some(ref fb) = fallback_group {
                         current_channel.group = fb.clone();

@@ -160,6 +160,9 @@ function WatchInner({
     videos.forEach((v) => {
       try {
         v.pause();
+        v.muted = true;
+        v.currentTime = 0;
+        v.srcObject = null;
         v.removeAttribute('src');
         v.load();
       } catch {
@@ -173,13 +176,16 @@ function WatchInner({
     }
   };
 
-  // Stop playback immediately on unmount so audio never leaks when navigating away
+  // Stop and silence playback immediately on unmount so audio never leaks when navigating away
   useEffect(() => {
     return () => {
       const videos = document.querySelectorAll('video');
       videos.forEach((v) => {
         try {
           v.pause();
+          v.muted = true;
+          v.currentTime = 0;
+          v.srcObject = null;
           v.removeAttribute('src');
           v.load();
         } catch {
@@ -188,6 +194,35 @@ function WatchInner({
       });
     };
   }, []);
+
+  if (details.isPending) {
+    return <StageFrame onBack={handleBack} onRetry={() => void details.refetch()} />;
+  }
+
+  if (details.isError) {
+    return (
+      <div className="flex h-full w-full items-center justify-center bg-black p-6">
+        <EmptyState
+          title="Could not load title details"
+          hint="The provider failed to return details for this item. Try again or return home."
+          action={
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => void details.refetch()}
+                className="rounded-full bg-accent px-5 py-2 text-[12.5px] font-semibold text-accent-contrast transition hover:bg-accent-hover cursor-pointer"
+              >
+                Try Again
+              </button>
+              <Link to={paths.home()} className="text-[13px] text-white/70 underline hover:text-white">
+                Back to Home
+              </Link>
+            </div>
+          }
+        />
+      </div>
+    );
+  }
 
   if (streamingOff) {
     return (
@@ -616,6 +651,7 @@ function ShakaStage({
   const playerRef = useRef<PlayerLike | null>(null);
   const [status, setStatus] = useState<'loading' | 'playing' | 'error'>('loading');
   const [errorText, setErrorText] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [resumeLabel, setResumeLabel] = useState('');
   const didResume = useRef(false);
   // The progress saver's ref is the canonical `<video>` handle: the player and
@@ -755,6 +791,9 @@ function ShakaStage({
       if (video) {
         try {
           video.pause();
+          video.muted = true;
+          video.currentTime = 0;
+          video.srcObject = null;
           video.removeAttribute('src');
           video.load();
         } catch {
@@ -770,9 +809,17 @@ function ShakaStage({
           /* a torn-down player that refuses to die is not worth reporting */
         }
       }
+      if (playerRef.current) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          void (playerRef.current as any).destroy?.();
+        } catch {
+          /* ignore */
+        }
+      }
       playerRef.current = null;
     };
-  }, [manifestUrl, videoRef]);
+  }, [manifestUrl, videoRef, reloadKey]);
 
   const [resumePromptVisible, setResumePromptVisible] = useState(false);
 
@@ -837,7 +884,10 @@ function ShakaStage({
         ready={status === 'playing'}
         status={status}
         errorText={errorText}
-        onRetry={() => setStatus('loading')}
+        onRetry={() => {
+          setStatus('loading');
+          setReloadKey((k) => k + 1);
+        }}
         poster={poster}
         title={title}
         episodeLabel={episodeLabel}

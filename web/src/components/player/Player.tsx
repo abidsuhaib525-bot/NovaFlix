@@ -128,8 +128,23 @@ export function Player({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [aspectRatio, setAspectRatio] = useState<AspectRatioMode>('contain');
   const [ratioToast, setRatioToast] = useState<string | null>(null);
+  const [seekToast, setSeekToast] = useState<string | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [dismissNearEnd, setDismissNearEnd] = useState(false);
+
+  const handleSeekBy = useCallback(
+    (delta: number) => {
+      seekBy(delta);
+      setSeekToast(delta > 0 ? `+${delta}s` : `${delta}s`);
+    },
+    [seekBy],
+  );
+
+  useEffect(() => {
+    if (!seekToast) return;
+    const timer = setTimeout(() => setSeekToast(null), 900);
+    return () => clearTimeout(timer);
+  }, [seekToast]);
 
   const cycleAspectRatio = useCallback(() => {
     const modes: AspectRatioMode[] = ['contain', 'cover', 'fill', '16:9', '4:3'];
@@ -237,19 +252,19 @@ export function Player({
           break;
         case 'ArrowLeft':
           event.preventDefault();
-          seekBy(-10);
+          handleSeekBy(-10);
           break;
         case 'ArrowRight':
           event.preventDefault();
-          seekBy(10);
+          handleSeekBy(10);
           break;
         case 'j':
         case 'J':
-          seekBy(-10);
+          handleSeekBy(-10);
           break;
         case 'l':
         case 'L':
-          seekBy(10);
+          handleSeekBy(10);
           break;
         case 'ArrowUp':
           event.preventDefault();
@@ -294,7 +309,7 @@ export function Player({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [videoRef, togglePlay, seekBy, seekTo, setVolume, toggleMute, toggleFullscreen, togglePip, cycleAspectRatio]);
+  }, [videoRef, togglePlay, handleSeekBy, seekTo, setVolume, toggleMute, toggleFullscreen, togglePip, cycleAspectRatio]);
 
   /* --- next-episode auto-advance ------------------------------------ */
 
@@ -380,6 +395,14 @@ export function Player({
         </div>
       )}
 
+      {/* Seeking Forward/Backward Visual Indicator */}
+      {seekToast && (
+        <div className="pointer-events-none absolute top-1/2 left-1/2 z-30 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-white/20 bg-black/85 px-6 py-3 text-[18px] font-black text-white shadow-2xl backdrop-blur-md animate-fade-in flex items-center gap-2.5">
+          <span className="text-accent">{seekToast.startsWith('+') ? '⏩' : '⏪'}</span>
+          <span>{seekToast}</span>
+        </div>
+      )}
+
       {/* Top scrim: back button and title. */}
       <div
         className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start gap-3 bg-gradient-to-b from-black/80 to-transparent px-3 pt-3 pb-10 transition-opacity duration-300 sm:px-5 ${
@@ -394,6 +417,9 @@ export function Player({
               if (video) {
                 try {
                   video.pause();
+                  video.muted = true;
+                  video.currentTime = 0;
+                  video.srcObject = null;
                   video.removeAttribute('src');
                   video.load();
                 } catch {

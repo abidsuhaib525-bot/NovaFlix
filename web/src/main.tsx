@@ -17,6 +17,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 
 import { App } from '@/App';
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { queryClient } from '@/lib/queryClient';
 import { applyTheme } from '@/lib/theme';
 import { useUiStore } from '@/store/ui';
@@ -36,10 +37,12 @@ if (!container) {
 
 createRoot(container).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ErrorBoundary fallbackTitle="NovaFlix encountered an unexpected error">
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   </StrictMode>,
 );

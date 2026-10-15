@@ -55,10 +55,14 @@ pub struct TvSettings {
 }
 
 pub const DEFAULT_IPTV_PLAYLISTS: &[&str] = &[
-    "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8",
-    "https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/samsungtvplus_all.m3u",
-    "https://iptv-org.github.io/iptv/index.country.m3u",
-    "https://iptv-org.github.io/iptv/languages/eng.m3u",
+    "https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_all.m3u",
+    "https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/samsungtvplus_gb.m3u",
+    "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_zz_movies.m3u8",
+    "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_zz_news_en.m3u8",
+    "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_usa.m3u8",
+    "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_uk.m3u8",
+    "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_india.m3u8",
+    "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_canada.m3u8",
 ];
 
 /// Load the playlist configuration, tolerating an unreadable file.
@@ -318,7 +322,6 @@ pub async fn proxy_tv_stream(
 
     if let Some(ref_url) = referer {
         req = req.header(reqwest::header::REFERER, &ref_url);
-        req = req.header("Origin", ref_url.trim_end_matches('/'));
     }
 
     if let Some(range) = headers.get(header::RANGE).and_then(|v| v.to_str().ok()) {

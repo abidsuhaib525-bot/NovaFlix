@@ -7,9 +7,10 @@
  * for nothing. Everything else is loaded on demand.
  */
 
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
 
+import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { Toaster } from '@/components/common/Toaster';
 import { ErrorState, SkeletonRail } from '@/components/common/StateBlocks';
 import { Footer } from '@/components/layout/Footer';
@@ -38,6 +39,25 @@ export function App() {
   const location = useLocation();
   const isWatch = location.pathname.startsWith('/watch');
   const isHeroPage = location.pathname === '/' || location.pathname.startsWith('/title/');
+
+  // Guaranteed audio silencing: stop, mute, and unload all video elements when leaving watch page
+  useEffect(() => {
+    if (!isWatch) {
+      const videos = document.querySelectorAll('video');
+      videos.forEach((v) => {
+        try {
+          v.pause();
+          v.muted = true;
+          v.currentTime = 0;
+          v.srcObject = null;
+          v.removeAttribute('src');
+          v.load();
+        } catch {
+          /* ignore */
+        }
+      });
+    }
+  }, [isWatch, location.pathname]);
 
   return (
     <div className={`relative flex flex-col ${isWatch ? 'h-dvh w-screen overflow-hidden bg-black' : 'min-h-dvh bg-bg-base'}`}>
@@ -92,8 +112,22 @@ export function App() {
 
             {/* The id may contain anything, including slashes and unicode, so it
                 is matched to the end of the path rather than one segment. */}
-            <Route path="/title/:provider/:id/*" element={<DetailsPage />} />
-            <Route path="/watch/:provider/:id/*" element={<WatchPage />} />
+            <Route
+              path="/title/:provider/:id/*"
+              element={
+                <ErrorBoundary fallbackTitle="Could not load title details">
+                  <DetailsPage />
+                </ErrorBoundary>
+              }
+            />
+            <Route
+              path="/watch/:provider/:id/*"
+              element={
+                <ErrorBoundary fallbackTitle="Player encountered an issue">
+                  <WatchPage />
+                </ErrorBoundary>
+              }
+            />
 
             <Route path="/library" element={<LibraryPage />} />
             <Route path="/downloads" element={<DownloadsPage />} />

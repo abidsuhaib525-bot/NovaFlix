@@ -247,7 +247,13 @@ export function usePlayerState({
       const video = videoRef.current;
       if (!video) return;
       const dur = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : Infinity;
-      video.currentTime = Math.max(0, Math.min(dur, seconds));
+      const target = Math.max(0, Math.min(dur, seconds));
+      try {
+        video.currentTime = target;
+        setState((prev) => ({ ...prev, currentTime: target }));
+      } catch (e) {
+        console.warn('[seekTo error]', e);
+      }
     },
     [videoRef],
   );
@@ -261,6 +267,7 @@ export function usePlayerState({
       const target = Math.max(0, Math.min(dur, cur + delta));
       try {
         video.currentTime = target;
+        setState((prev) => ({ ...prev, currentTime: target }));
       } catch (e) {
         console.warn('[seekBy error]', e);
       }

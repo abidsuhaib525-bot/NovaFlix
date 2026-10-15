@@ -97,32 +97,38 @@ function getCountryFlag(country?: string | null): string {
  */
 const CURATED_PRESETS = [
   {
-    label: 'Free-TV Global (Daily Verified)',
-    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8',
+    label: 'Pluto TV (FAST 24/7 Global)',
+    url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_all.m3u',
     category: 'Curated',
-    badge: '99% Uptime',
+    badge: '100% Verified',
   },
   {
-    label: 'Samsung TV Plus (FAST 24/7)',
-    url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/samsungtvplus_all.m3u',
+    label: 'Samsung TV Plus (FAST HD)',
+    url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/samsungtvplus_gb.m3u',
     category: 'Curated',
     badge: '1080p FAST',
   },
   {
-    label: 'Pluto TV (FAST Movies & Shows)',
-    url: 'https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/plutotv_all.m3u',
+    label: 'Live Movies 24/7',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_zz_movies.m3u8',
     category: 'Curated',
-    badge: 'FAST',
+    badge: 'Movies',
+  },
+  {
+    label: 'Global News 24/7',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_zz_news_en.m3u8',
+    category: 'Curated',
+    badge: 'News',
   },
   {
     label: 'USA Channels',
-    url: 'https://iptv-org.github.io/iptv/countries/us.m3u',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_usa.m3u8',
     category: 'Country',
     flag: '🇺🇸',
   },
   {
     label: 'UK Channels',
-    url: 'https://iptv-org.github.io/iptv/countries/uk.m3u',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_uk.m3u8',
     category: 'Country',
     flag: '🇬🇧',
   },
@@ -134,41 +140,21 @@ const CURATED_PRESETS = [
   },
   {
     label: 'India Channels',
-    url: 'https://iptv-org.github.io/iptv/countries/in.m3u',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_india.m3u8',
     category: 'Country',
     flag: '🇮🇳',
   },
   {
     label: 'Canada Channels',
-    url: 'https://iptv-org.github.io/iptv/countries/ca.m3u',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlists/playlist_canada.m3u8',
     category: 'Country',
     flag: '🇨🇦',
   },
   {
-    label: 'Global Countries Index',
-    url: 'https://iptv-org.github.io/iptv/index.country.m3u',
-    category: 'Country',
-    flag: '🌐',
-  },
-  {
-    label: 'Movies',
-    url: 'https://iptv-org.github.io/iptv/categories/movies.m3u',
-    category: 'Category',
-  },
-  {
-    label: 'News',
-    url: 'https://iptv-org.github.io/iptv/categories/news.m3u',
-    category: 'Category',
-  },
-  {
-    label: 'Sports',
-    url: 'https://iptv-org.github.io/iptv/categories/sports.m3u',
-    category: 'Category',
-  },
-  {
-    label: 'Animation',
-    url: 'https://iptv-org.github.io/iptv/categories/animation.m3u',
-    category: 'Category',
+    label: 'Free-TV Global (Daily Verified)',
+    url: 'https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8',
+    category: 'Curated',
+    badge: 'Verified',
   },
 ];
 
@@ -981,6 +967,11 @@ function TvPlayerModal({
       } catch (err: any) {
         if (!cancelled) {
           console.warn('[TvPlayer failed]', err);
+          if (!useDirect) {
+            console.log('[TvPlayer] Proxied stream failed, auto-attempting direct connection...');
+            setUseDirect(true);
+            return;
+          }
           if (video.canPlayType('application/vnd.apple.mpegurl')) {
             try {
               video.src = streamUrl;
@@ -1002,6 +993,9 @@ function TvPlayerModal({
       if (video) {
         try {
           video.pause();
+          video.muted = true;
+          video.currentTime = 0;
+          video.srcObject = null;
           video.removeAttribute('src');
           video.load();
         } catch {
@@ -1016,7 +1010,7 @@ function TvPlayerModal({
         }
       }
     };
-  }, [streamUrl]);
+  }, [streamUrl, useDirect]);
 
   return (
     <div
