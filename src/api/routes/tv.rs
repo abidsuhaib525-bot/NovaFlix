@@ -55,7 +55,9 @@ pub struct TvSettings {
 }
 
 pub const DEFAULT_IPTV_PLAYLISTS: &[&str] = &[
-    "https://iptv-org.github.io/iptv/index.category.m3u",
+    "https://raw.githubusercontent.com/Free-TV/IPTV/master/playlist.m3u8",
+    "https://raw.githubusercontent.com/BuddyChewChew/app-m3u-generator/main/playlists/samsungtvplus_all.m3u",
+    "https://iptv-org.github.io/iptv/index.country.m3u",
     "https://iptv-org.github.io/iptv/languages/eng.m3u",
 ];
 
@@ -307,9 +309,17 @@ pub async fn proxy_tv_stream(
         }
     }
 
+    let referer = crate::util::url::extract_host_authority(&target_url)
+        .map(|h| format!("https://{h}/"));
+
     let mut req = state.http.get(&target_url)
         .header(reqwest::header::USER_AGENT, crate::net::DEFAULT_BROWSER_USER_AGENT)
         .header(reqwest::header::ACCEPT, "*/*");
+
+    if let Some(ref_url) = referer {
+        req = req.header(reqwest::header::REFERER, &ref_url);
+        req = req.header("Origin", ref_url.trim_end_matches('/'));
+    }
 
     if let Some(range) = headers.get(header::RANGE).and_then(|v| v.to_str().ok()) {
         req = req.header(reqwest::header::RANGE, range);
@@ -453,7 +463,14 @@ pub fn resolve_relative_url(base_url: &str, relative: &str) -> String {
         return relative.to_string();
     }
     if let Ok(base) = url::Url::parse(base_url) {
-        if let Ok(joined) = base.join(relative) {
+        if let Ok(mut joined) = base.join(relative) {
+            if !relative.contains('?') {
+                if let Some(query) = base.query() {
+                    if !query.is_empty() {
+                        joined.set_query(Some(query));
+                    }
+                }
+            }
             return joined.to_string();
         }
     }

@@ -243,6 +243,7 @@ export interface TvChannel {
   url: string;
   stream_url?: string;
   group: string | null;
+  country?: string | null;
   logo: string | null;
   tvg_id?: string | null;
 }

@@ -130,6 +130,7 @@ impl M3UParser {
 
     pub fn parse_m3u_with_url(&self, content: &str, url_hint: Option<&str>) -> Vec<Channel> {
         let fallback_group = url_hint.and_then(infer_group_from_url);
+        let fallback_country = url_hint.and_then(infer_country_from_url);
         let estimated = content.as_bytes().iter().filter(|&&b| b == b'\n').count() / 2;
         let mut channels = Vec::with_capacity(estimated.max(16));
         let mut current_channel = Channel::default();
@@ -149,13 +150,26 @@ impl M3UParser {
                 if !tvg_logo.is_empty() {
                     current_channel.logo = tvg_logo.to_string();
                 }
+                let tvg_country = extract_attr_slice(line, "tvg-country");
+                if !tvg_country.is_empty() {
+                    current_channel.country = normalize_country(tvg_country);
+                }
                 let group_title = extract_attr_slice(line, "group-title");
                 if !group_title.is_empty() {
                     current_channel.group = normalize_group_title(group_title, fallback_group.as_deref());
+                    if current_channel.country.is_none() {
+                        current_channel.country = infer_country_from_text(group_title);
+                    }
                 }
 
                 if let Some(idx) = find_extinf_title_comma(line) {
                     current_channel.name = line[idx + 1..].trim().to_string();
+                }
+
+                if current_channel.country.is_none() {
+                    if let Some(ref tid) = current_channel.tvg_id {
+                        current_channel.country = infer_country_from_tvg_id(tid);
+                    }
                 }
             } else if !line.starts_with('#') {
                 current_channel.stream_url = line.to_string();
@@ -164,6 +178,9 @@ impl M3UParser {
                     if let Some(ref fb) = fallback_group {
                         current_channel.group = fb.clone();
                     }
+                }
+                if current_channel.country.is_none() {
+                    current_channel.country = fallback_country.clone();
                 }
                 if current_channel.id.is_empty() {
                     current_channel.id = current_channel.name.clone();
@@ -214,6 +231,124 @@ pub fn infer_group_from_url(url: &str) -> Option<String> {
         }
     }
     None
+}
+
+pub fn country_from_code(code: &str) -> Option<&'static str> {
+    match code.trim().to_ascii_lowercase().as_str() {
+        "us" | "usa" => Some("United States"),
+        "uk" | "gb" | "gbr" => Some("United Kingdom"),
+        "pk" | "pak" => Some("Pakistan"),
+        "in" | "ind" => Some("India"),
+        "ca" | "can" => Some("Canada"),
+        "au" | "aus" => Some("Australia"),
+        "de" | "deu" => Some("Germany"),
+        "fr" | "fra" => Some("France"),
+        "es" | "esp" => Some("Spain"),
+        "it" | "ita" => Some("Italy"),
+        "sa" | "sau" => Some("Saudi Arabia"),
+        "ae" | "are" => Some("United Arab Emirates"),
+        "tr" | "tur" => Some("Turkey"),
+        "br" | "bra" => Some("Brazil"),
+        "eg" | "egy" => Some("Egypt"),
+        "bd" | "bgd" => Some("Bangladesh"),
+        "nl" | "nld" => Some("Netherlands"),
+        "se" | "swe" => Some("Sweden"),
+        "no" | "nor" => Some("Norway"),
+        "dk" | "dnk" => Some("Denmark"),
+        "ch" | "che" => Some("Switzerland"),
+        "at" | "aut" => Some("Austria"),
+        "jp" | "jpn" => Some("Japan"),
+        "kr" | "kor" => Some("South Korea"),
+        "cn" | "chn" => Some("China"),
+        "mx" | "mex" => Some("Mexico"),
+        "ar" | "arg" => Some("Argentina"),
+        "za" | "zaf" => Some("South Africa"),
+        "ru" | "rus" => Some("Russia"),
+        "ua" | "ukr" => Some("Ukraine"),
+        "nz" | "nzl" => Some("New Zealand"),
+        "ie" | "irl" => Some("Ireland"),
+        "af" | "afg" => Some("Afghanistan"),
+        "qa" | "qat" => Some("Qatar"),
+        "kw" | "kwt" => Some("Kuwait"),
+        _ => None,
+    }
+}
+
+pub fn normalize_country(val: &str) -> Option<String> {
+    let trimmed = val.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if let Some(full) = country_from_code(trimmed) {
+        return Some(full.to_string());
+    }
+    Some(clean_category_name(trimmed))
+}
+
+pub fn infer_country_from_tvg_id(tvg_id: &str) -> Option<String> {
+    let id_base = tvg_id.split('@').next()?.trim();
+    let code = id_base.rsplit('.').next()?.trim();
+    if code.len() == 2 || code.len() == 3 {
+        country_from_code(code).map(|s| s.to_string())
+    } else {
+        None
+    }
+}
+
+pub fn infer_country_from_url(url: &str) -> Option<String> {
+    let lower = url.to_ascii_lowercase();
+    if lower.contains("/countries/") || lower.contains("/country/") {
+        let filename = lower.rsplit('/').next()?.split('.').next()?;
+        if let Some(full) = country_from_code(filename) {
+            return Some(full.to_string());
+        }
+        return Some(clean_category_name(filename));
+    }
+    for code in ["_us.", "_gb.", "_uk.", "_pk.", "_in.", "_ca.", "_au.", "_de.", "_fr.", "_es.", "_it.", "_sa.", "_ae."] {
+        if lower.contains(code) {
+            let pure_code = code.trim_matches(|c| c == '_' || c == '.');
+            if let Some(full) = country_from_code(pure_code) {
+                return Some(full.to_string());
+            }
+        }
+    }
+    None
+}
+
+pub fn infer_country_from_text(text: &str) -> Option<String> {
+    let token = text.split([';', ',']).next().map(str::trim).unwrap_or("");
+    if let Some(c) = country_from_code(token) {
+        return Some(c.to_string());
+    }
+    let lower = token.to_ascii_lowercase();
+    match lower.as_str() {
+        "united states" | "usa" => Some("United States".to_string()),
+        "united kingdom" | "uk" => Some("United Kingdom".to_string()),
+        "pakistan" => Some("Pakistan".to_string()),
+        "india" => Some("India".to_string()),
+        "canada" => Some("Canada".to_string()),
+        "australia" => Some("Australia".to_string()),
+        "germany" => Some("Germany".to_string()),
+        "france" => Some("France".to_string()),
+        "spain" => Some("Spain".to_string()),
+        "italy" => Some("Italy".to_string()),
+        "saudi arabia" => Some("Saudi Arabia".to_string()),
+        "united arab emirates" | "uae" => Some("United Arab Emirates".to_string()),
+        "turkey" => Some("Turkey".to_string()),
+        "brazil" => Some("Brazil".to_string()),
+        "egypt" => Some("Egypt".to_string()),
+        "bangladesh" => Some("Bangladesh".to_string()),
+        "afghanistan" => Some("Afghanistan".to_string()),
+        "russia" => Some("Russia".to_string()),
+        "ukraine" => Some("Ukraine".to_string()),
+        "china" => Some("China".to_string()),
+        "japan" => Some("Japan".to_string()),
+        "south korea" => Some("South Korea".to_string()),
+        "mexico" => Some("Mexico".to_string()),
+        "argentina" => Some("Argentina".to_string()),
+        "south africa" => Some("South Africa".to_string()),
+        _ => None,
+    }
 }
 
 fn extract_attr_slice<'a>(line: &'a str, attr_name: &str) -> &'a str {
