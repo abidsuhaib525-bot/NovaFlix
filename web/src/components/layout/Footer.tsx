@@ -41,18 +41,18 @@ export function Footer() {
             <h4 className="mb-3 text-[12px] font-bold uppercase tracking-wider text-white/80">Navigation</h4>
             <ul className="space-y-2 text-[13px]">
               <li><Link to={paths.home()} className="text-fg-subtle hover:text-accent transition">Home</Link></li>
-              <li><Link to={paths.tab('2')} className="text-fg-subtle hover:text-accent transition">Movies</Link></li>
+              <li><Link to={paths.tab('19')} className="text-fg-subtle hover:text-accent transition">Hollywood Blockbusters</Link></li>
+              <li><Link to={paths.tab('2')} className="text-fg-subtle hover:text-accent transition">Bollywood & Hindi</Link></li>
               <li><Link to={paths.tab('5')} className="text-fg-subtle hover:text-accent transition">TV Series</Link></li>
               <li><Link to={paths.tab('8')} className="text-fg-subtle hover:text-accent transition">Anime</Link></li>
             </ul>
           </div>
 
           <div>
-            <h4 className="mb-3 text-[12px] font-bold uppercase tracking-wider text-white/80">Features</h4>
+            <h4 className="mb-3 text-[12px] font-bold uppercase tracking-wider text-white/80">Library & Settings</h4>
             <ul className="space-y-2 text-[13px]">
               <li><Link to={paths.favorites()} className="text-fg-subtle hover:text-accent transition">Favorites / Watchlist</Link></li>
               <li><Link to={paths.history()} className="text-fg-subtle hover:text-accent transition">Watch History</Link></li>
-              <li><Link to={paths.downloads()} className="text-fg-subtle hover:text-accent transition">Downloads & Offline</Link></li>
               <li><Link to={paths.addons()} className="text-fg-subtle hover:text-accent transition">Addons & Catalogs</Link></li>
               <li><Link to={paths.settings()} className="text-fg-subtle hover:text-accent transition">Settings</Link></li>
             </ul>

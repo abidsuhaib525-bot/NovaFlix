@@ -12,34 +12,21 @@
  * instead of erroring, so a hardcoded copy in the client could rot invisibly.
  */
 
-import { Clapperboard, Download, Heart, History, Menu, Puzzle, Settings, X } from 'lucide-react';
+import { Clapperboard, Heart, History, Menu, Puzzle, Settings, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 
 import { SearchBar } from '@/components/layout/SearchBar';
 import { useHomepageTabs } from '@/hooks/useCatalog';
-import { formatBytes, formatSpeed } from '@/lib/format';
 import { paths } from '@/lib/routes';
-import { api } from '@/lib/api';
 import { useUiStore } from '@/store/ui';
 
-/**
- * How many tabs fit in the bar.
- *
- * The full list runs to ten and a bar that scrolls horizontally looks broken, so
- * the bar shows the first few and the home page's tab rail carries the rest. The
- * cut is a display decision only -- nothing is unreachable.
- */
-const NAV_TABS = 4;
-
-/** Header actions, always visible, never collapsed. */
 /**
  * Header actions.
  */
 const ACTIONS = [
   { to: paths.favorites(), label: 'Favorites', icon: Heart },
   { to: paths.history(), label: 'History', icon: History },
-  { to: paths.downloads(), label: 'Downloads', icon: Download },
   { to: paths.addons(), label: 'Addons', icon: Puzzle },
   { to: paths.settings(), label: 'Settings', icon: Settings },
 ] as const;
@@ -53,13 +40,6 @@ export function TopNav() {
 
   const [scrolled, setScrolled] = useState(false);
 
-  /**
-   * Whether the header has a frosted background.
-   *
-   * Driven by scroll rather than by a prop from the page, because the header
-   * spans every route and only the scroll position is common to all of them.
-   * `passive` because this fires on every frame of a scroll.
-   */
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
     onScroll();
@@ -67,26 +47,28 @@ export function TopNav() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Collapse the drawer on navigation. Without this it stays open over the page
-  // the user just chose, hiding the result of their click.
+  // Collapse the drawer on navigation.
   useEffect(() => setNavOpen(false), [location.pathname, setNavOpen]);
 
   const actions = ACTIONS;
 
-  // Make sure Anime (id: '8') is included in the top navigation bar along with For You, Movies, TV Series
+  // Categorized navigation tabs: Hollywood (19), Bollywood (2), TV Series (5), Anime (8)
   const navTabs = (() => {
-    const desired = ['1', '2', '5', '8']; // For You, Movies, TV Series, Anime
-    const picked: typeof tabs = [];
-    for (const id of desired) {
+    const desired = [
+      { id: '19', fallbackLabel: 'Hollywood' },
+      { id: '2', fallbackLabel: 'Bollywood' },
+      { id: '5', fallbackLabel: 'TV Series' },
+      { id: '8', fallbackLabel: 'Anime' },
+    ];
+    return desired.map(({ id, fallbackLabel }) => {
       const found = tabs.find((t) => t.id === id);
-      if (found) picked.push(found);
-    }
-    // Fill remaining up to NAV_TABS + 1 if any desired was missing
-    for (const t of tabs) {
-      if (picked.length >= Math.max(NAV_TABS, 4)) break;
-      if (!picked.some((p) => p.id === t.id)) picked.push(t);
-    }
-    return picked;
+      return {
+        id,
+        label: id === '19' ? 'Hollywood' : id === '2' ? 'Bollywood' : (found?.label ?? fallbackLabel),
+        blurb: found?.blurb ?? '',
+        mature: false,
+      };
+    });
   })();
 
   return (
@@ -133,27 +115,21 @@ export function TopNav() {
         <SearchBar className="ml-auto w-full max-w-xs lg:max-w-sm" />
 
         <div className="hidden shrink-0 items-center gap-0.5 md:flex">
-          {actions.map(({ to, label, icon: Icon }) => {
-            if (to === paths.downloads()) {
-              return <DownloadHeaderAction key={to} to={to} label={label} />;
-            }
-
-            return (
-              <NavLink
-                key={to}
-                to={to}
-                title={label}
-                aria-label={label}
-                className={({ isActive }) =>
-                  `grid size-9 place-items-center rounded-lg transition ${
-                    isActive ? 'bg-bg-hover text-accent' : 'text-fg-muted hover:bg-bg-hover hover:text-fg-default'
-                  }`
-                }
-              >
-                <Icon className="size-4.5" aria-hidden="true" />
-              </NavLink>
-            );
-          })}
+          {actions.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              title={label}
+              aria-label={label}
+              className={({ isActive }) =>
+                `grid size-9 place-items-center rounded-lg transition ${
+                  isActive ? 'bg-bg-hover text-accent' : 'text-fg-muted hover:bg-bg-hover hover:text-fg-default'
+                }`
+              }
+            >
+              <Icon className="size-4.5" aria-hidden="true" />
+            </NavLink>
+          ))}
         </div>
 
         <button
@@ -242,200 +218,4 @@ function DrawerTab({ to, end, children }: { to: string; end?: boolean; children:
     </NavLink>
   );
 }
-
-/**
- * Chrome-style Download Indicator & Header Action.
- * Shows animated glowing download badge, live progress ring, and real-time popover tray.
- */
-function DownloadHeaderAction({ to, label }: { to: string; label: string }) {
-  const activeDownload = useUiStore((state) => state.activeDownload);
-  const clearDownloadAnimation = useUiStore((state) => state.clearDownloadAnimation);
-  const [showTray, setShowTray] = useState(false);
-  const [isBouncing, setIsBouncing] = useState(false);
-  const [liveProgress, setLiveProgress] = useState<{
-    percent: number;
-    downloaded_bytes: number;
-    total_bytes: number | null;
-    speed_bps: number | null;
-    state?: string;
-  } | null>(null);
-
-  const [activeTasks, setActiveTasks] = useState<Record<string, string>>({});
-
-  // Trigger chrome-style bounce and popup when a new download starts
-  useEffect(() => {
-    if (!activeDownload) return;
-    setIsBouncing(true);
-    setShowTray(true);
-    setLiveProgress(null);
-
-    const bounceTimer = setTimeout(() => setIsBouncing(false), 2400);
-    // Stay open longer if active so user can see real progress moving
-    const trayTimer = setTimeout(() => {
-      setShowTray(false);
-      clearDownloadAnimation();
-    }, 12000);
-
-    return () => {
-      clearTimeout(bounceTimer);
-      clearTimeout(trayTimer);
-    };
-  }, [activeDownload, clearDownloadAnimation]);
-
-  // Hook live SSE progress stream for real download metrics & multi-download count
-  useEffect(() => {
-    const stream = new EventSource(api.downloadsStreamUrl());
-    const onProgress = (event: MessageEvent<string>) => {
-      try {
-        const frame = JSON.parse(event.data);
-        if (frame.id && frame.state) {
-          setActiveTasks((prev) => {
-            if (frame.state === 'running') {
-              if (prev[frame.id] === 'running') return prev;
-              return { ...prev, [frame.id]: frame.state };
-            }
-            if (['completed', 'failed', 'cancelled', 'paused'].includes(frame.state)) {
-              if (!prev[frame.id]) return prev;
-              const next = { ...prev };
-              delete next[frame.id];
-              return next;
-            }
-            return prev;
-          });
-        }
-
-        // Match specific task or most recent live task
-        if (activeDownload && (!activeDownload.id || frame.id === activeDownload.id)) {
-          const rawPct = frame.progress ?? 0;
-          setLiveProgress((prev) => {
-            const nextPct = Math.max(prev?.percent ?? 0, Math.min(100, Math.round(rawPct)));
-            return {
-              percent: nextPct,
-              downloaded_bytes: Math.max(prev?.downloaded_bytes ?? 0, frame.downloaded_bytes ?? 0),
-              total_bytes: frame.total_bytes ?? prev?.total_bytes ?? null,
-              speed_bps: frame.speed_bps ?? prev?.speed_bps ?? null,
-              state: frame.state,
-            };
-          });
-        }
-      } catch {
-        /* Ignore malformed SSE */
-      }
-    };
-
-    stream.addEventListener('progress', onProgress);
-    return () => stream.close();
-  }, [activeDownload]);
-
-  const runningCount = Object.keys(activeTasks).length;
-  const hasActive = Boolean(activeDownload || runningCount > 0);
-  const percent = liveProgress?.percent ?? 0;
-  const isCompleted = liveProgress?.state === 'completed' || percent >= 100;
-
-  return (
-    <div className="relative">
-      <NavLink
-        to={to}
-        title={label}
-        aria-label={label}
-        className={({ isActive }) =>
-          `relative grid size-9 place-items-center rounded-lg transition ${
-            isActive
-              ? 'bg-bg-hover text-accent'
-              : hasActive
-              ? 'bg-accent/20 text-accent font-bold shadow-[0_0_15px_rgba(232,180,74,0.4)]'
-              : 'text-fg-muted hover:bg-bg-hover hover:text-fg-default'
-          } ${isBouncing ? 'animate-bounce text-accent scale-110' : ''}`
-        }
-      >
-        <Download className={`size-4.5 transition-transform ${isBouncing ? 'translate-y-0.5' : ''}`} aria-hidden="true" />
-
-        {/* Chrome-style active download pulse ring & count badge */}
-        {hasActive && (
-          <span className="absolute -top-1 -right-1 flex size-3.5 items-center justify-center">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-75" />
-            <span className="relative inline-flex size-3.5 items-center justify-center rounded-full bg-accent text-[9px] font-black text-black border border-bg-surface">
-              {runningCount > 1 ? runningCount : ''}
-            </span>
-          </span>
-        )}
-      </NavLink>
-
-      {/* Chrome-style Download Tray Popover with REAL live progress */}
-      {showTray && activeDownload && (
-        <div className="absolute right-0 top-full mt-2 w-80 rounded-2xl border border-white/20 bg-[#121218]/95 p-3.5 text-white shadow-2xl backdrop-blur-xl animate-fade-in z-50">
-          <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-            <div className="flex items-center gap-1.5 text-[12px] font-bold text-accent">
-              <Download className={`size-3.5 ${isCompleted ? 'text-emerald-400' : 'animate-bounce'}`} />
-              <span className={isCompleted ? 'text-emerald-400' : 'text-accent'}>
-                {isCompleted ? 'Download Complete!' : 'Downloading File...'}
-              </span>
-              {runningCount > 1 && (
-                <span className="ml-1 rounded-full bg-white/10 px-1.5 py-0.5 text-[9.5px] font-normal text-white/60">
-                  +{runningCount - 1} other
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setShowTray(false);
-                clearDownloadAnimation();
-              }}
-              className="rounded p-1 text-white/50 hover:bg-white/10 hover:text-white"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-
-          <div className="mt-3">
-            <p className="truncate text-[13px] font-semibold text-white/90">
-              {activeDownload.title}
-            </p>
-
-            <div className="mt-1 flex items-center justify-between text-[11px] text-white/60">
-              <span className="rounded bg-accent/20 px-1.5 py-0.5 text-[10px] font-bold text-accent uppercase">
-                {activeDownload.format}
-              </span>
-              {liveProgress?.speed_bps ? (
-                <span className="text-[10.5px] text-accent font-medium">
-                  {formatSpeed(liveProgress.speed_bps)}
-                </span>
-              ) : (
-                <span className="text-[10px] text-emerald-400 font-medium">Downloading</span>
-              )}
-            </div>
-
-            {/* REAL Chrome-style progress line bar */}
-            <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-accent transition-[width] duration-300 ease-out"
-                style={{ width: `${percent}%` }}
-              />
-            </div>
-
-            {/* Real Numbers & Percentage Display */}
-            <div className="mt-1.5 flex items-center justify-between text-[11px] text-white/60 font-medium">
-              <span>{percent}%</span>
-              <span>
-                {liveProgress?.total_bytes
-                  ? `${formatBytes(liveProgress.downloaded_bytes)} / ${formatBytes(liveProgress.total_bytes)}`
-                  : liveProgress?.downloaded_bytes
-                  ? `${formatBytes(liveProgress.downloaded_bytes)} downloaded`
-                  : 'Starting...'}
-              </span>
-            </div>
-
-            <Link
-              to={paths.downloads()}
-              onClick={() => setShowTray(false)}
-              className="mt-3 block text-center rounded-xl bg-white/10 py-2 text-[11.5px] font-semibold text-accent transition hover:bg-accent hover:text-accent-contrast shadow-sm"
-            >
-              View in Downloads &rarr;
-            </Link>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+

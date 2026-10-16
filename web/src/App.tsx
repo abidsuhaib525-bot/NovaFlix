@@ -8,7 +8,7 @@
  */
 
 import { lazy, Suspense, useEffect } from 'react';
-import { Route, Routes, useLocation } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { Toaster } from '@/components/common/Toaster';
@@ -28,9 +28,6 @@ const FavoritesPage = lazy(() =>
 );
 const HistoryPage = lazy(() =>
   import('@/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })),
-);
-const DownloadsPage = lazy(() =>
-  import('@/pages/DownloadsPage').then((m) => ({ default: m.DownloadsPage })),
 );
 const AddonsPage = lazy(() => import('@/pages/AddonsPage').then((m) => ({ default: m.AddonsPage })));
 const SettingsPage = lazy(() =>
@@ -134,7 +131,7 @@ export function App() {
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/library" element={<FavoritesPage />} />
-            <Route path="/downloads" element={<DownloadsPage />} />
+            <Route path="/downloads" element={<Navigate to="/" replace />} />
             <Route path="/addons" element={<AddonsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
 

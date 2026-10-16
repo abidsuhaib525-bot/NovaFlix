@@ -553,21 +553,21 @@ const HOME_TABS: &[HomepageTab] = &[
         mature: false,
     },
     HomepageTab {
+        id: "19",
+        label: "Hollywood",
+        blurb: "Hollywood and international blockbusters",
+        mature: false,
+    },
+    HomepageTab {
         id: "2",
-        label: "Movies",
+        label: "Bollywood",
         blurb: "Hindi and Bollywood films",
         mature: false,
     },
     HomepageTab {
         id: "5",
         label: "TV Series",
-        blurb: "Indian serialised television",
-        mature: false,
-    },
-    HomepageTab {
-        id: "19",
-        label: "International",
-        blurb: "Series from around the world",
+        blurb: "Indian and international television",
         mature: false,
     },
     HomepageTab {

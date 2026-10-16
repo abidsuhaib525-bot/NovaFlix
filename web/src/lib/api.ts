@@ -52,7 +52,7 @@ export const API_BASE = (
   (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_BASE_URL ||
   (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_API_URL ||
   (import.meta as unknown as { env?: Record<string, string | undefined> }).env?.VITE_BACKEND_URL ||
-  ''
+  (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') ? 'https://123.fluxcode.blitz.cloud' : '')
 ).replace(/\/+$/, '');
 
 export function resolveUrl(path: string): string {

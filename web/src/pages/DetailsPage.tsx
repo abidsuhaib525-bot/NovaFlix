@@ -10,7 +10,7 @@
  * for a movie the URL stays bare.
  */
 
-import { ArrowLeft, Calendar, Check, ChevronDown, Clock, Download, Film, Grid, Heart, List, Loader2, Play, Share2, Sparkles, Star, Tv, User, Users, Video, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, ChevronDown, Clock, Download, Film, Grid, Heart, List, Play, Share2, Sparkles, Star, Tv, User, Users, Video, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -22,7 +22,6 @@ import {
   useBrowseRail,
   useDetails,
   useFavorites,
-  useStartDownload,
   useStreams,
   useToggleFavorite,
 } from '@/hooks/useCatalog';
@@ -372,7 +371,6 @@ function ActionRow({
   streams?: Release[];
   hasStreams?: boolean;
 }) {
-  const startDownload = useStartDownload();
   const notify = useUiStore((s) => s.notify);
   const [downloadStarted, setDownloadStarted] = useState(false);
   const [qualityMenuOpen, setQualityMenuOpen] = useState(false);
@@ -405,7 +403,7 @@ function ActionRow({
 
     setQualityMenuOpen(false);
 
-    // 1. Direct browser local download: save directly to user's device Downloads folder
+    // Direct browser local download: save directly to user's device Downloads folder
     const directUrl = api.directDownloadUrl({
       provider,
       subject_id: id,
@@ -425,34 +423,11 @@ function ActionRow({
     anchor.click();
     setTimeout(() => {
       document.body.removeChild(anchor);
-    }, 100);
+    }, 150);
 
     setDownloadStarted(true);
-    notify('success', `Downloading "${displayTitle}" directly to your device (${targetFormat.toUpperCase()})`);
-    useUiStore.getState().triggerDownloadAnimation(displayTitle, targetFormat);
-    setTimeout(() => setDownloadStarted(false), 4000);
-
-    // 2. Also register in download queue
-    startDownload.mutate(
-      {
-        subject_id: id,
-        provider,
-        title: item.title,
-        season,
-        episode,
-        resource_id: resourceId,
-        max_height: height,
-        format: targetFormat,
-        cover_url: item.poster_url,
-        release_year: item.year ?? undefined,
-        filename: selectedRelease?.filename ?? undefined,
-      },
-      {
-        onError: () => {
-          // Silent fallback since direct browser download was already initiated
-        },
-      },
-    );
+    notify('success', `Starting download: "${displayTitle}" (${targetFormat.toUpperCase()})`);
+    setTimeout(() => setDownloadStarted(false), 3000);
   };
 
   return (
@@ -470,32 +445,22 @@ function ActionRow({
         <div className="inline-flex items-center rounded-full border border-border-strong bg-white/5 shadow-sm transition hover:border-accent">
           <button
             type="button"
-            onClick={() => {
-              triggerDownload();
-            }}
-            disabled={startDownload.isPending || downloadStarted}
+            onClick={() => triggerDownload()}
+            disabled={downloadStarted}
             className={`inline-flex cursor-pointer items-center gap-2 rounded-l-full py-3 pl-5 pr-3 text-[14px] font-semibold transition ${
               downloadStarted
                 ? 'bg-emerald-500/15 text-emerald-400'
                 : 'text-fg-default hover:text-accent'
             }`}
-            title="Download directly (or click arrow for options)"
+            title="Download directly to your device (or click arrow for options)"
           >
-              {startDownload.isPending ? (
-                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-              ) : downloadStarted ? (
-                <Check className="size-4 text-emerald-400" aria-hidden="true" />
-              ) : (
-                <Download className="size-4" aria-hidden="true" />
-              )}
-              <span>
-                {startDownload.isPending
-                  ? 'Starting...'
-                  : downloadStarted
-                  ? 'Added'
-                  : 'Download'}
-              </span>
-            </button>
+            {downloadStarted ? (
+              <Check className="size-4 text-emerald-400" aria-hidden="true" />
+            ) : (
+              <Download className="size-4" aria-hidden="true" />
+            )}
+            <span>{downloadStarted ? 'Downloading...' : 'Download'}</span>
+          </button>
 
             {/* Quality dropdown caret button */}
             <button
@@ -662,13 +627,7 @@ function ActionRow({
         <span className="hidden sm:inline">Share</span>
       </button>
 
-      <Link
-        to={paths.downloads()}
-        className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-[13.5px] font-medium text-fg-muted transition hover:border-border-strong hover:text-fg-default"
-        title="View download manager"
-      >
-        Manage Downloads
-      </Link>
+
 
       {/* Trailer Modal */}
       {showTrailer && (

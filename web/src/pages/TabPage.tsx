@@ -104,11 +104,27 @@ export function TabPage() {
     setParams(next <= 1 ? {} : { page: String(next) });
   };
 
+  const tabTitle = useMemo(() => {
+    if (tabId === '19') return 'Hollywood Blockbusters';
+    if (tabId === '2') return 'Bollywood & Hindi Cinema';
+    if (tabId === '8') return 'Anime & Japanese Animation';
+    if (tabId === '5') return 'TV Series & Shows';
+    return tab?.label ?? 'Browse';
+  }, [tabId, tab?.label]);
+
+  const tabSubtitle = useMemo(() => {
+    if (tabId === '19') return 'Hollywood and international blockbuster movies and series in 4K UHD';
+    if (tabId === '2') return 'Top Hindi and Bollywood movies, romance, action, thriller & comedy';
+    if (tabId === '8') return 'Popular Japanese anime series and movies with multi-language dubs';
+    if (tabId === '5') return 'Binge-worthy television shows and serialized drama';
+    return tab?.blurb;
+  }, [tabId, tab?.blurb]);
+
   return (
     <div className="mx-auto max-w-[1600px] px-4 pt-4 sm:px-6 lg:px-8">
       <PageHeading
-        title={tab?.label ?? 'Browse'}
-        subtitle={tab?.blurb}
+        title={tabTitle}
+        subtitle={tabSubtitle}
         action={<CategorySelect current={tabId} />}
       />
 

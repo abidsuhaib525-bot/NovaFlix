@@ -29,11 +29,12 @@ export function PosterImage({
   className?: string;
   children?: React.ReactNode;
 }) {
-  // Reset whenever the source changes. Without the key change the `loaded`
-  // state from a previous poster would survive and the new image would appear
-  // without ever fading in.
   const [status, setStatus] = useState<Status>(src ? 'loading' : 'failed');
-  const [generation, setGeneration] = useState(0);
+  const [useFallbackProxy, setUseFallbackProxy] = useState(false);
+
+  // Fast direct load with referrerpolicy="no-referrer"; fallback to proxy if blocked
+  const initialUrl = src?.startsWith('http') ? src : src ? api.posterUrl(src) : '';
+  const effectiveSrc = useFallbackProxy && src ? api.posterUrl(src) : initialUrl;
 
   return (
     <div className={`relative overflow-hidden bg-bg-raised ${className}`}>
@@ -43,22 +44,21 @@ export function PosterImage({
 
           {status !== 'failed' && (
             <img
-              // Remounting per source is the simplest correct reset; there is no
-              // other state on this element worth preserving.
-              key={`${src}:${generation}`}
-              src={api.posterUrl(src)}
+              key={effectiveSrc}
+              src={effectiveSrc}
               alt={alt}
               loading="lazy"
               decoding="async"
+              referrerPolicy="no-referrer"
               onLoad={() => setStatus('loaded')}
               onError={() => {
-                setStatus('failed');
-                // One retry. Poster CDNs fail transiently more often than they
-                // fail permanently, and a single retry recovers those without
-                // looping on a genuinely missing image.
-                if (generation === 0) setGeneration(1);
+                if (!useFallbackProxy && src?.startsWith('http')) {
+                  setUseFallbackProxy(true);
+                } else {
+                  setStatus('failed');
+                }
               }}
-              className={`size-full object-cover transition-opacity duration-500 ${
+              className={`size-full object-cover transition-opacity duration-300 ${
                 status === 'loaded' ? 'opacity-100' : 'opacity-0'
               }`}
             />

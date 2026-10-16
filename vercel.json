@@ -6,6 +6,10 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://123.fluxcode.blitz.cloud/api/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

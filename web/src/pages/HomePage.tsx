@@ -66,10 +66,12 @@ const FEATURED = 20;
 const RAIL_COUNT = 4;
 
 export function HomePage() {
-  // Tab 1 is "For You": the broad mixed feed. A constant rather than a fetched
-  // value because the home page must render before the tab list arrives, and the
-  // hero is the largest thing on screen -- it cannot wait on two requests.
+  // Tab 1 is "For You": the broad mixed feed.
   const deck = useHomepage('1');
+  const hollywoodDeck = useHomepage('19'); // Hollywood
+  const bollywoodDeck = useHomepage('2'); // Bollywood
+  const animeDeck = useHomepage('8'); // Anime
+  const seriesDeck = useHomepage('5'); // TV Series
   const rails = useBrowseRails();
   const history = useHistory();
   const favorites = useFavorites();
@@ -114,15 +116,47 @@ export function HomePage() {
         {/* 1. Trending at top */}
         {trendingRail && <BrowseRailSection key={trendingRail.key} rail={trendingRail} />}
 
-        {/* 2. Latest additions second */}
+        {/* 2. Hollywood Blockbusters */}
+        <CategoryRail
+          title="🎬 Hollywood Blockbusters"
+          tabId="19"
+          items={hollywoodDeck.data?.items.slice(0, FEATURED) ?? []}
+          pending={hollywoodDeck.isPending}
+        />
+
+        {/* 3. Bollywood & Hindi Cinema */}
+        <CategoryRail
+          title="🍿 Bollywood & Hindi Cinema"
+          tabId="2"
+          items={bollywoodDeck.data?.items.slice(0, FEATURED) ?? []}
+          pending={bollywoodDeck.isPending}
+        />
+
+        {/* 4. Latest additions */}
         <FeaturedRail items={featured} pending={deck.isPending} />
 
-        {/* 3. Remaining ranked rails */}
+        {/* 5. Remaining ranked rails */}
         {rails.isPending ? (
           Array.from({ length: Math.max(1, RAIL_COUNT - 1) }, (_, index) => <SkeletonRail key={index} />)
         ) : (
           otherRails.map((rail) => <BrowseRailSection key={rail.key} rail={rail} />)
         )}
+
+        {/* 6. Anime & Animation */}
+        <CategoryRail
+          title="🎌 Anime & Animation"
+          tabId="8"
+          items={animeDeck.data?.items.slice(0, FEATURED) ?? []}
+          pending={animeDeck.isPending}
+        />
+
+        {/* 7. Trending TV Series */}
+        <CategoryRail
+          title="📺 Trending TV Series"
+          tabId="5"
+          items={seriesDeck.data?.items.slice(0, FEATURED) ?? []}
+          pending={seriesDeck.isPending}
+        />
 
         <CategoryDirectory />
       </div>
@@ -276,14 +310,16 @@ function FavoritesRail({ items }: { items: FavoriteItem[] }) {
  * text instead, which is why the text sits over the image rather than under it.
  */
 function CoverImage({ url, alt }: { url: string | null; alt: string }) {
+  const imgSrc = url?.startsWith('http') ? url : url ? api.posterUrl(url) : null;
   return (
     <div className="relative">
-      {url ? (
+      {imgSrc ? (
         <img
-          src={api.posterUrl(url)}
+          src={imgSrc}
           alt={alt}
           loading="lazy"
           decoding="async"
+          referrerPolicy="no-referrer"
           className="aspect-poster w-full object-cover"
         />
       ) : (
@@ -298,8 +334,35 @@ function CoverImage({ url, alt }: { url: string | null; alt: string }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Rails                                                                       */
-/* -------------------------------------------------------------------------- */
+function CategoryRail({
+  title,
+  tabId,
+  items,
+  pending,
+}: {
+  title: string;
+  tabId: string;
+  items: CatalogItem[];
+  pending: boolean;
+}) {
+  if (pending) return <SkeletonRail />;
+  if (items.length === 0) return null;
+
+  return (
+    <section className="mb-9">
+      <SectionHeading
+        id={`heading-category-${tabId}`}
+        title={title}
+        action={<SeeAllLink to={paths.tab(tabId)}>See all &rarr;</SeeAllLink>}
+      />
+      <Rail labelledBy={`heading-category-${tabId}`}>
+        {items.map((item) => (
+          <PosterCard key={itemKey(item)} item={item} className={TILE} />
+        ))}
+      </Rail>
+    </section>
+  );
+}
 
 function FeaturedRail({ items, pending }: { items: CatalogItem[]; pending: boolean }) {
   if (pending) return <SkeletonRail />;
