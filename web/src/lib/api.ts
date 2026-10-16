@@ -61,35 +61,56 @@ export function resolveUrl(path: string): string {
   return `${API_BASE}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  let res: Response;
-  try {
-    res = await fetch(resolveUrl(path), {
-      ...init,
-      headers: {
-        ...(init?.body ? { 'content-type': 'application/json' } : {}),
-        ...init?.headers,
-      },
-    });
-  } catch {
-    throw new ApiError('Cannot reach the MovieBox server. Is it running?', 0);
-  }
+async function request<T>(path: string, init?: RequestInit, maxRetries = 2): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    let res: Response | null = null;
+    let isTransientError = false;
 
-  if (!res.ok) {
-    // The backend returns `{ "error": "..." }` for handled failures.
-    let message = `Request failed (${res.status})`;
     try {
-      const body = (await res.json()) as { error?: string; message?: string };
-      if (body?.error) message = body.error;
-      else if (body?.message) message = body.message;
-    } catch {
-      /* non-JSON error body */
-    }
-    throw new ApiError(message, res.status);
-  }
+      res = await fetch(resolveUrl(path), {
+        ...init,
+        headers: {
+          ...(init?.body ? { 'content-type': 'application/json' } : {}),
+          ...init?.headers,
+        },
+      });
 
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
+      // Blitz Cloud wake-up returns 502/503/504 while container is scaling up
+      if ([502, 503, 504].includes(res.status)) {
+        isTransientError = true;
+      }
+    } catch {
+      isTransientError = true;
+    }
+
+    if (isTransientError && attempt < maxRetries) {
+      attempt++;
+      // Wait 2.5s on first retry, 4s on second retry to let the Blitz container wake up
+      await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+      continue;
+    }
+
+    if (!res || isTransientError) {
+      throw new ApiError('Cannot reach the NovaFlixZone server. Is it running?', 0);
+    }
+
+    if (!res.ok) {
+      // The backend returns `{ "error": "..." }` for handled failures.
+      let message = `Request failed (${res.status})`;
+      try {
+        const body = (await res.json()) as { error?: string; message?: string };
+        if (body?.error) message = body.error;
+        else if (body?.message) message = body.message;
+      } catch {
+        /* non-JSON error body */
+      }
+      throw new ApiError(message, res.status);
+    }
+
+    if (res.status === 204) return undefined as T;
+    return (await res.json()) as T;
+  }
 }
 
 const get = <T>(path: string, params?: Query) => request<T>(`${path}${qs(params ?? {})}`);
