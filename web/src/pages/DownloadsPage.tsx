@@ -268,6 +268,18 @@ function TaskRow({
             />
           )}
 
+          {task.state === 'completed' && (
+            <a
+              href={api.downloadFileUrl(task.id)}
+              download={task.filename}
+              className="inline-flex items-center gap-1.5 rounded-full bg-accent/20 border border-accent/40 px-3 py-1 text-[12px] font-semibold text-accent transition hover:bg-accent hover:text-accent-contrast shadow-sm"
+              title="Save to your local device (PC / mobile)"
+            >
+              <Download className="size-3.5" />
+              <span>Save to Device</span>
+            </a>
+          )}
+
           {terminal && (
             <IconAction
               label="Remove from list"

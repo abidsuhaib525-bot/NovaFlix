@@ -7,7 +7,7 @@
  * trips -- and gives no way to notice that a save failed.
  */
 
-import { Check, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { PageHeading, SectionHeading, Spinner } from '@/components/common/StateBlocks';
@@ -17,7 +17,6 @@ import {
   useSettings,
 } from '@/hooks/useCatalog';
 import { api } from '@/lib/api';
-import { THEMES, isKnownTheme } from '@/lib/theme';
 import type { ProviderKind, Settings } from '@/types';
 import { notifyError, useUiStore } from '@/store/ui';
 
@@ -29,18 +28,20 @@ export function SettingsPage() {
   /**
    * The form's copy.
    *
-   * Seeded from the server and then owned by this component. Every control edits
-   * the draft; nothing is written until Save is pressed.
+   * Seeded from the server/local storage and then owned by this component.
    */
   const [draft, setDraft] = useState<Settings | null>(null);
 
   useEffect(() => {
-    // Guarded rather than unconditional: overwriting on every server update would
-    // discard edits made since the last fetch.
-    setDraft((existing) => existing ?? current.data ?? null);
+    if (current.data) {
+      const localProvider = localStorage.getItem('novaflix_active_provider') as ProviderKind | null;
+      if (localProvider && localProvider !== current.data.active_provider) {
+        setDraft({ ...current.data, active_provider: localProvider });
+      } else {
+        setDraft(current.data);
+      }
+    }
   }, [current.data]);
-
-  const setTheme = useUiStore((state) => state.setTheme);
 
   if (current.isPending || !draft) return null;
 
@@ -51,11 +52,13 @@ export function SettingsPage() {
   };
 
   const onSave = () => {
+    if (!draft) return;
+    if (draft.active_provider) {
+      localStorage.setItem('novaflix_active_provider', draft.active_provider);
+    }
     save.mutate(draft, {
-      onSuccess: () => {
-        // Apply the theme locally too, so the page reflects the choice without
-        // waiting for a refetch to come back around.
-        if (isKnownTheme(draft.active_theme)) setTheme(draft.active_theme);
+      onSuccess: (saved) => {
+        setDraft(saved);
         useUiStore.getState().notify('success', 'Settings saved');
       },
       onError: notifyError,
@@ -83,8 +86,6 @@ export function SettingsPage() {
       />
 
       <div className="grid gap-10 lg:grid-cols-2">
-        <ThemeSection value={draft.active_theme} onChange={(id) => patch('active_theme', id)} />
-
         <section>
           <SectionHeading
             id="heading-content"
@@ -137,56 +138,6 @@ export function SettingsPage() {
 /* -------------------------------------------------------------------------- */
 /* Sections                                                                    */
 /* -------------------------------------------------------------------------- */
-
-/**
- * The theme picker.
- *
- * Applied on click rather than on save. A theme is the one setting whose whole
- * purpose is to be looked at, and holding it behind a Save button means choosing
- * one only to discover you dislike it after a reload.
- */
-function ThemeSection({ value, onChange }: { value: string; onChange: (id: string) => void }) {
-  const setTheme = useUiStore((state) => state.setTheme);
-
-  return (
-    <section>
-      <SectionHeading id="heading-theme" title="Theme" subtitle="Applied immediately." />
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {THEMES.map((theme) => {
-          const active = theme.id === value;
-
-          return (
-            <button
-              key={theme.id}
-              type="button"
-              onClick={() => {
-                onChange(theme.id);
-                setTheme(theme.id);
-              }}
-              aria-pressed={active}
-              className={`flex items-center gap-2.5 rounded-card border px-3 py-2.5 text-left transition ${
-                active
-                  ? 'border-accent bg-accent-subtle'
-                  : 'border-border-subtle bg-bg-surface hover:border-border-strong'
-              }`}
-            >
-              <span className="flex shrink-0 overflow-hidden rounded-md" aria-hidden="true">
-                {theme.swatch.map((colour) => (
-                  <span key={colour} className="size-5" style={{ backgroundColor: colour }} />
-                ))}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-fg-default">
-                {theme.label}
-              </span>
-              {active && <Check className="size-3.5 shrink-0 text-accent" aria-hidden="true" />}
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
-}
 
 /**
  * Per-provider switches.
@@ -275,19 +226,22 @@ function ProviderSection({
                   }}
                 />
 
-                {/* Radio for the search provider. One source at a time, because
-                    results from different providers cannot be merged into one
-                    honest ranking. */}
-                <label className="mt-2.5 flex cursor-pointer items-center gap-2 border-t border-border-subtle pt-2.5 text-[12.5px] text-fg-muted">
+                {/* Radio for the search provider. One source at a time. */}
+                <label className="mt-2.5 flex cursor-pointer items-center gap-2 border-t border-border-subtle pt-2.5 text-[12.5px] text-fg-muted hover:text-fg-default">
                   <input
                     type="radio"
                     name="active-provider"
                     checked={draft.active_provider === provider.kind}
                     disabled={!provider.available || !provider.capabilities.supports_search}
-                    onChange={() => onPatch('active_provider', provider.kind)}
+                    onChange={() => {
+                      onPatch('active_provider', provider.kind);
+                      localStorage.setItem('novaflix_active_provider', provider.kind);
+                    }}
                     className="accent-[var(--accent)]"
                   />
-                  Use for search
+                  <span className={draft.active_provider === provider.kind ? 'font-bold text-accent' : ''}>
+                    Use for search {draft.active_provider === provider.kind ? '(Active)' : ''}
+                  </span>
                 </label>
               </div>
             );

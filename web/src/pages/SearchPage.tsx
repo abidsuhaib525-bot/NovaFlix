@@ -18,6 +18,7 @@ import {
 } from '@/components/common/StateBlocks';
 import { PosterCard } from '@/components/media/PosterCard';
 import { useSearch, useSettings } from '@/hooks/useCatalog';
+import type { ProviderKind } from '@/types';
 
 const PAGE_SIZE = 30;
 
@@ -35,7 +36,8 @@ export function SearchPage() {
    * the rankings are comparable.
    */
   const { data: settings } = useSettings();
-  const provider = settings?.active_provider ?? 'moviebox';
+  const localProvider = (typeof window !== 'undefined' ? localStorage.getItem('novaflix_active_provider') : null) as ProviderKind | null;
+  const provider = localProvider || settings?.active_provider || 'moviebox';
 
   const results = useSearch(provider, query, page);
 

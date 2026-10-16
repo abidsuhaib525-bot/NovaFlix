@@ -246,8 +246,8 @@ export function useHomepage(tabId: string, page = 1): UseQueryResult<HomeDeckRes
   return useQuery({
     queryKey: keys.homepage(tabId, page),
     queryFn: () => api.homepage(tabId, page),
-    // A tab with no items is a legitimate upstream answer, not an error, but it
-    // is also not worth caching hard -- an empty tab may fill within minutes.
+    staleTime: 10 * 60_000,
+    gcTime: 30 * 60_000,
     retry: 1,
   });
 }
@@ -265,9 +265,8 @@ export function useBrowseRails(): UseQueryResult<BrowseRail[]> {
   return useQuery({
     queryKey: keys.browseAll(),
     queryFn: api.browseAll,
-    // Each rail pools several upstream tabs server-side, so this is the most
-    // expensive read on the home page. Held fresh for longer than everything else.
-    staleTime: 5 * 60_000,
+    staleTime: 15 * 60_000,
+    gcTime: 30 * 60_000,
   });
 }
 

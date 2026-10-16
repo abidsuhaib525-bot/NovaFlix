@@ -1,11 +1,15 @@
 //! Download routes and the SSE progress stream.
 
-use axum::extract::{Path, State};
+use axum::body::Body;
+use axum::extract::{Path, Query, State};
+use axum::http::{header, HeaderValue};
+use axum::response::Response;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::routing::{delete, get, post};
 use axum::Json;
 use futures::stream::Stream;
-use serde::{Deserialize, Serialize};use std::time::Duration;
+use serde::{Deserialize, Serialize};
+use std::time::Duration;
 use tokio::sync::broadcast;
 
 use crate::api::error::{ApiError, ApiResult};
@@ -17,6 +21,8 @@ use crate::providers::models::ProviderKind;
 pub fn router() -> axum::Router<AppState> {
     axum::Router::new()
         .route("/downloads", get(snapshot).post(start_download).delete(clear_finished))
+        .route("/downloads/direct", get(direct_download))
+        .route("/downloads/{id}/file", get(download_saved_file))
         .route("/downloads/stream", get(progress_stream))
         .route("/downloads/{id}/pause", post(pause))
         .route("/downloads/{id}/resume", post(resume))
@@ -283,6 +289,195 @@ async fn remove(
 async fn clear_finished(State(state): State<AppState>) -> ApiResult<Json<Ack>> {
     state.downloads.clear_finished();
     Ok(Json(Ack::new()))
+}
+
+/// Query parameters for `GET /api/downloads/direct`.
+#[derive(Debug, Deserialize)]
+pub struct DirectDownloadQuery {
+    pub provider: String,
+    pub subject_id: String,
+    #[serde(default)]
+    pub season: usize,
+    #[serde(default)]
+    pub episode: usize,
+    #[serde(default)]
+    pub resource_id: Option<String>,
+    #[serde(default)]
+    pub max_height: Option<u64>,
+    #[serde(default)]
+    pub format: Option<String>,
+    #[serde(default)]
+    pub title: Option<String>,
+}
+
+/// Stream video directly to the user's browser with Content-Disposition: attachment
+/// so the movie downloads directly into their local computer or mobile device.
+async fn direct_download(
+    State(state): State<AppState>,
+    Query(query): Query<DirectDownloadQuery>,
+    headers: axum::http::HeaderMap,
+) -> Result<Response, ApiError> {
+    let provider = ProviderKind::parse(&query.provider)
+        .ok_or_else(|| ApiError::BadRequest(format!("unknown provider `{}`", query.provider)))?;
+    if query.subject_id.trim().is_empty() {
+        return Err(ApiError::BadRequest("`subject_id` is required".into()));
+    }
+
+    let releases = state
+        .service
+        .episode_streams(provider, &query.subject_id, query.season, query.episode)
+        .await
+        .map_err(ApiError::from)?;
+
+    let release = query
+        .resource_id
+        .as_deref()
+        .and_then(|target_id| {
+            releases
+                .iter()
+                .filter(|r| engine_downloadable(r))
+                .find(|r| r.resource_id.as_deref() == Some(target_id))
+        })
+        .or_else(|| {
+            releases
+                .iter()
+                .filter(|r| engine_downloadable(r))
+                .min_by_key(|r| {
+                    let height = r.resolution_u64();
+                    match query.max_height.filter(|&h| h > 0) {
+                        Some(cap) if height > cap => 1_000_000 + height,
+                        _ => height.abs_diff(1080),
+                    }
+                })
+        })
+        .or_else(|| releases.first())
+        .ok_or_else(|| {
+            ApiError::BadRequest("No downloadable stream found for this title".into())
+        })?;
+
+    let source = state
+        .service
+        .resolve_playback_source(release, query.max_height, None)
+        .map_err(ApiError::from)?;
+
+    let ext = match query.format.as_deref().map(|s| s.trim().to_ascii_lowercase()) {
+        Some(ref f) if f == "mp4" => "mp4",
+        Some(ref f) if f == "mkv" => "mkv",
+        _ => "mp4",
+    };
+
+    let mut stem = crate::download::safe_file_stem(
+        query
+            .title
+            .as_deref()
+            .unwrap_or(&release.filename),
+    );
+    let lower = stem.to_ascii_lowercase();
+    if lower.ends_with(".mp4") || lower.ends_with(".mkv") {
+        stem.truncate(stem.len() - 4);
+    }
+    let filename = format!("{stem}.{ext}");
+
+    let mut req = state.http.get(&source.url);
+    for (name, val) in &source.headers {
+        if !name.eq_ignore_ascii_case("host") {
+            req = req.header(name.as_str(), val.as_str());
+        }
+    }
+    if let Some(range) = headers.get(axum::http::header::RANGE) {
+        if let Ok(range_val) = range.to_str() {
+            req = req.header("Range", range_val);
+        }
+    }
+
+    let upstream_res = req.send().await.map_err(|e| {
+        ApiError::Upstream(format!("Could not connect to download stream: {e}"))
+    })?;
+
+    let status = upstream_res.status();
+    if !status.is_success() && status.as_u16() != 206 {
+        return Err(ApiError::Upstream(format!(
+            "Download stream host returned HTTP error ({})",
+            status.as_u16()
+        )));
+    }
+
+    let upstream_headers = upstream_res.headers().clone();
+    let mut resp = Response::new(Body::from_stream(upstream_res.bytes_stream()));
+    *resp.status_mut() = status;
+
+    let resp_headers = resp.headers_mut();
+    let mime = if ext == "mp4" {
+        "video/mp4"
+    } else {
+        "video/x-matroska"
+    };
+    resp_headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static(mime),
+    );
+    resp_headers.insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&format!("attachment; filename=\"{filename}\""))
+            .unwrap_or(HeaderValue::from_static("attachment")),
+    );
+    resp_headers.insert(
+        header::ACCEPT_RANGES,
+        HeaderValue::from_static("bytes"),
+    );
+    if let Some(cl) = upstream_headers.get(header::CONTENT_LENGTH) {
+        resp_headers.insert(header::CONTENT_LENGTH, cl.clone());
+    }
+    if let Some(cr) = upstream_headers.get(header::CONTENT_RANGE) {
+        resp_headers.insert(header::CONTENT_RANGE, cr.clone());
+    }
+
+    Ok(resp)
+}
+
+/// Download a file that has finished in the server download queue.
+async fn download_saved_file(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Response, ApiError> {
+    let task = state
+        .downloads
+        .snapshot()
+        .into_iter()
+        .find(|t| t.id == id)
+        .ok_or_else(|| ApiError::NotFound(format!("download task `{id}` not found")))?;
+
+    let path_str = task
+        .path
+        .ok_or_else(|| ApiError::NotFound("Download file path not available".into()))?;
+    let path = std::path::PathBuf::from(path_str);
+    if !path.exists() {
+        return Err(ApiError::NotFound("File no longer exists on disk".into()));
+    }
+
+    let file = tokio::fs::File::open(&path)
+        .await
+        .map_err(|e| ApiError::internal(format!("Could not open file: {e}")))?;
+    let stream = tokio_util::io::ReaderStream::new(file);
+
+    let filename = path
+        .file_name()
+        .map(|f| f.to_string_lossy().to_string())
+        .unwrap_or_else(|| "video.mp4".to_string());
+
+    let mut resp = Response::new(Body::from_stream(stream));
+    let headers = resp.headers_mut();
+    headers.insert(
+        header::CONTENT_DISPOSITION,
+        HeaderValue::from_str(&format!("attachment; filename=\"{filename}\""))
+            .unwrap_or(HeaderValue::from_static("attachment")),
+    );
+    headers.insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("application/octet-stream"),
+    );
+
+    Ok(resp)
 }
 
 // The resume target lives in the manager, next to the fields it copies out of.

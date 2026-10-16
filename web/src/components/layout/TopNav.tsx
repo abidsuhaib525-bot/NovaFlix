@@ -12,8 +12,8 @@
  * instead of erroring, so a hardcoded copy in the client could rot invisibly.
  */
 
-import { Check, Clapperboard, Download, Heart, Menu, Palette, Puzzle, Settings, X } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Clapperboard, Download, Heart, History, Menu, Puzzle, Settings, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 
 import { SearchBar } from '@/components/layout/SearchBar';
@@ -21,7 +21,6 @@ import { useHomepageTabs } from '@/hooks/useCatalog';
 import { formatBytes, formatSpeed } from '@/lib/format';
 import { paths } from '@/lib/routes';
 import { api } from '@/lib/api';
-import { THEMES } from '@/lib/theme';
 import { useUiStore } from '@/store/ui';
 
 /**
@@ -36,14 +35,10 @@ const NAV_TABS = 4;
 /** Header actions, always visible, never collapsed. */
 /**
  * Header actions.
- *
- * `to` is a string rather than the `paths` function itself. A route builder is a
- * function, and passing one where a resolved path is expected is a mistake that
- * only shows up as a runtime navigation to the literal function's source -- the
- * types caught it here.
  */
 const ACTIONS = [
-  { to: paths.library(), label: 'Library', icon: Heart },
+  { to: paths.favorites(), label: 'Favorites', icon: Heart },
+  { to: paths.history(), label: 'History', icon: History },
   { to: paths.downloads(), label: 'Downloads', icon: Download },
   { to: paths.addons(), label: 'Addons', icon: Puzzle },
   { to: paths.settings(), label: 'Settings', icon: Settings },
@@ -159,7 +154,6 @@ export function TopNav() {
               </NavLink>
             );
           })}
-          <ThemeQuickSwitcher />
         </div>
 
         <button
@@ -439,98 +433,6 @@ function DownloadHeaderAction({ to, label }: { to: string; label: string }) {
             >
               View in Downloads &rarr;
             </Link>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ThemeQuickSwitcher() {
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const themeId = useUiStore((s) => s.themeId);
-  const setTheme = useUiStore((s) => s.setTheme);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (e: PointerEvent) => {
-      if (!containerRef.current?.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
-
-  return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        title="Change Theme Palette"
-        aria-label="Change Theme Palette"
-        aria-expanded={open}
-        className={`grid size-9 place-items-center rounded-lg transition cursor-pointer ${
-          open
-            ? 'bg-accent/20 text-accent shadow-[0_0_12px_rgba(245,166,35,0.3)] ring-1 ring-accent/40'
-            : 'text-fg-muted hover:bg-bg-hover hover:text-fg-default'
-        }`}
-      >
-        <Palette className="size-4.5" aria-hidden="true" />
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-full z-50 mt-2 w-64 rounded-2xl border border-white/15 bg-[#121218]/95 p-2 shadow-2xl backdrop-blur-xl animate-scale-in">
-          <div className="mb-2 flex items-center justify-between border-b border-white/10 px-2.5 pb-2 pt-1">
-            <span className="text-[12px] font-bold uppercase tracking-wider text-white/90">
-              Select Theme
-            </span>
-            <span className="text-[10px] text-accent font-semibold uppercase">
-              {THEMES.find((t) => t.id === themeId)?.label.split(' ')[0] ?? 'Custom'}
-            </span>
-          </div>
-
-          <div className="max-h-72 overflow-y-auto space-y-1 pr-0.5">
-            {THEMES.map((theme) => {
-              const active = theme.id === themeId;
-              return (
-                <button
-                  key={theme.id}
-                  type="button"
-                  onClick={() => {
-                    setTheme(theme.id);
-                    setOpen(false);
-                  }}
-                  className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[12.5px] transition-all cursor-pointer ${
-                    active
-                      ? 'bg-white/10 font-bold text-white ring-1 ring-white/20 shadow-sm'
-                      : 'text-fg-muted hover:bg-white/[0.06] hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    {/* Swatch dots */}
-                    <div className="flex -space-x-1">
-                      <span
-                        className="inline-block size-3.5 rounded-full border border-black/40 shadow-xs"
-                        style={{ backgroundColor: theme.swatch[0] }}
-                      />
-                      <span
-                        className="inline-block size-3.5 rounded-full border border-black/40 shadow-xs"
-                        style={{ backgroundColor: theme.swatch[1] }}
-                      />
-                      <span
-                        className="inline-block size-3.5 rounded-full border border-black/40 shadow-xs"
-                        style={{ backgroundColor: theme.swatch[2] }}
-                      />
-                    </div>
-                    <span>{theme.label}</span>
-                  </div>
-
-                  {active && <Check className="size-3.5 text-accent" />}
-                </button>
-              );
-            })}
           </div>
         </div>
       )}

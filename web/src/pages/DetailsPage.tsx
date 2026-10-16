@@ -28,6 +28,7 @@ import {
 } from '@/hooks/useCatalog';
 import { cleanTitle, extractEditionTags, formatBytes, formatRuntime } from '@/lib/format';
 import { isProviderKind, paths, readIndex } from '@/lib/routes';
+import { api } from '@/lib/api';
 import { CastMember, fetchTmdbCast, fetchTmdbSeasonEpisodes, fetchTmdbTrailer, getTmdbImageUrl, searchTmdbMedia, TmdbEpisodeMeta } from '@/lib/tmdb';
 import type { MediaDetails, ProviderKind, Release } from '@/types';
 import { notifyError, useUiStore } from '@/store/ui';
@@ -404,6 +405,34 @@ function ActionRow({
 
     setQualityMenuOpen(false);
 
+    // 1. Direct browser local download: save directly to user's device Downloads folder
+    const directUrl = api.directDownloadUrl({
+      provider,
+      subject_id: id,
+      season,
+      episode,
+      resource_id: resourceId,
+      max_height: height,
+      format: targetFormat,
+      title: item.title,
+    });
+
+    const displayTitle = cleanTitle(item.title);
+    const anchor = document.createElement('a');
+    anchor.href = directUrl;
+    anchor.setAttribute('download', `${displayTitle}.${targetFormat}`);
+    document.body.appendChild(anchor);
+    anchor.click();
+    setTimeout(() => {
+      document.body.removeChild(anchor);
+    }, 100);
+
+    setDownloadStarted(true);
+    notify('success', `Downloading "${displayTitle}" directly to your device (${targetFormat.toUpperCase()})`);
+    useUiStore.getState().triggerDownloadAnimation(displayTitle, targetFormat);
+    setTimeout(() => setDownloadStarted(false), 4000);
+
+    // 2. Also register in download queue
     startDownload.mutate(
       {
         subject_id: id,
@@ -419,17 +448,8 @@ function ActionRow({
         filename: selectedRelease?.filename ?? undefined,
       },
       {
-        onSuccess: (resp) => {
-          setDownloadStarted(true);
-          const qualityText = selectedRelease?.quality ? ` (${selectedRelease.quality})` : '';
-          const formatText = ` [${targetFormat.toUpperCase()}]`;
-          const displayTitle = `${cleanTitle(item.title)}${qualityText}`;
-          notify('success', `Download started: ${displayTitle}${formatText}`);
-          useUiStore.getState().triggerDownloadAnimation(displayTitle, targetFormat, resp?.id);
-          setTimeout(() => setDownloadStarted(false), 4000);
-        },
-        onError: (err) => {
-          notifyError(err);
+        onError: () => {
+          // Silent fallback since direct browser download was already initiated
         },
       },
     );

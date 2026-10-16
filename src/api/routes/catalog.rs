@@ -404,6 +404,20 @@ async fn browse_all(
     // that second half to cover this route without a live CDN.
     let presets = resolve_presets(query.presets.as_deref())?;
 
+    // Pre-warm unique sources concurrently so tabs shared across presets ("1", "5", "2")
+    // are fetched exactly once, populating the in-memory cache for instant subsequent rail assembly.
+    let mut distinct_sources = std::collections::HashSet::new();
+    for preset in &presets {
+        for s in preset.sources {
+            distinct_sources.insert(*s);
+        }
+    }
+    let fetch_futs: Vec<_> = distinct_sources
+        .into_iter()
+        .map(|src| state.service.homepage(src, 1))
+        .collect();
+    let _ = futures::future::join_all(fetch_futs).await;
+
     let mut rails = Vec::with_capacity(presets.len());
 
     for preset in presets {

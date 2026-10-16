@@ -187,7 +187,12 @@ impl From<&crate::config::Config> for WebSettings {
 }
 
 /// Read the current settings.
-async fn get_settings() -> Json<WebSettings> {
+async fn get_settings(State(state): State<AppState>) -> Json<WebSettings> {
+    if let Ok(Some(stored_json)) = state.store.load_settings().await {
+        if let Ok(settings) = serde_json::from_value::<WebSettings>(stored_json) {
+            return Json(settings);
+        }
+    }
     Json(WebSettings::from(&crate::config::load()))
 }
 

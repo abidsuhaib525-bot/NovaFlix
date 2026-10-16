@@ -23,8 +23,11 @@ const DetailsPage = lazy(() =>
   import('@/pages/DetailsPage').then((m) => ({ default: m.DetailsPage })),
 );
 const WatchPage = lazy(() => import('@/pages/WatchPage').then((m) => ({ default: m.WatchPage })));
-const LibraryPage = lazy(() =>
-  import('@/pages/LibraryPage').then((m) => ({ default: m.LibraryPage })),
+const FavoritesPage = lazy(() =>
+  import('@/pages/FavoritesPage').then((m) => ({ default: m.FavoritesPage })),
+);
+const HistoryPage = lazy(() =>
+  import('@/pages/HistoryPage').then((m) => ({ default: m.HistoryPage })),
 );
 const DownloadsPage = lazy(() =>
   import('@/pages/DownloadsPage').then((m) => ({ default: m.DownloadsPage })),
@@ -128,7 +131,9 @@ export function App() {
               }
             />
 
-            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/favorites" element={<FavoritesPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/library" element={<FavoritesPage />} />
             <Route path="/downloads" element={<DownloadsPage />} />
             <Route path="/addons" element={<AddonsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

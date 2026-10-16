@@ -166,6 +166,17 @@ export const api = {
   /** Poster bytes are proxied so we control the User-Agent and size cap. */
   posterUrl: (url: string) => resolveUrl(`/api/poster${qs({ url })}`),
   downloadsStreamUrl: () => resolveUrl('/api/downloads/stream'),
+  directDownloadUrl: (params: {
+    provider: string;
+    subject_id: string;
+    season?: number;
+    episode?: number;
+    resource_id?: string | null;
+    max_height?: number | null;
+    format?: string | null;
+    title?: string | null;
+  }) => resolveUrl(`/api/downloads/direct${qs(params)}`),
+  downloadFileUrl: (id: string) => resolveUrl(`/api/downloads/${encodeURIComponent(id)}/file`),
   resolveUrl: (path: string) => resolveUrl(path),
 
   /* Playback ------------------------------------------------------------- */

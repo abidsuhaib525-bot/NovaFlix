@@ -19,6 +19,7 @@ pub struct MovieBoxService {
     pub addon_client: crate::providers::addons::AddonClient,
     pub dramachi_client: crate::providers::dramachi::DramachiClient,
     pub http_client: reqwest::Client,
+    pub homepage_cache: Arc<tokio::sync::RwLock<std::collections::HashMap<(String, usize), (std::time::Instant, (Vec<CatalogItem>, std::collections::HashMap<String, BrowseMetrics>))>>>,
 }
 
 impl Default for MovieBoxService {
@@ -42,6 +43,7 @@ impl MovieBoxService {
             addon_client: crate::providers::addons::AddonClient::new(),
             dramachi_client: crate::providers::dramachi::DramachiClient::new(),
             http_client,
+            homepage_cache: Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
         }
     }
 
@@ -337,12 +339,34 @@ impl MovieBoxService {
         ),
         String,
     > {
-        let payload = self
-            .client
-            .get_homepage(tab_id, page)
-            .await
-            .map_err(|e| e.to_string())?;
-        Ok(crate::providers::moviebox::adapt::moviebox_homepage_json_to_catalog(&payload))
+        let key = (tab_id.to_string(), page);
+        {
+            let cache = self.homepage_cache.read().await;
+            if let Some((inserted, data)) = cache.get(&key) {
+                // 15 minutes TTL for snappy instant browsing
+                if inserted.elapsed() < std::time::Duration::from_secs(900) {
+                    return Ok(data.clone());
+                }
+            }
+        }
+
+        let payload_res = self.client.get_homepage(tab_id, page).await;
+        match payload_res {
+            Ok(payload) => {
+                let data = crate::providers::moviebox::adapt::moviebox_homepage_json_to_catalog(&payload);
+                let mut cache = self.homepage_cache.write().await;
+                cache.insert(key, (std::time::Instant::now(), data.clone()));
+                Ok(data)
+            }
+            Err(e) => {
+                let cache = self.homepage_cache.read().await;
+                if let Some((_, data)) = cache.get(&key) {
+                    log::warn!("upstream homepage({tab_id}, {page}) failed ({e}); using stale cached catalog");
+                    return Ok(data.clone());
+                }
+                Err(e.to_string())
+            }
+        }
     }
 
     pub async fn fetch_collection_resolutions(&self, subject_id: &str) -> Result<Vec<u32>, String> {

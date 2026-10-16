@@ -50,10 +50,11 @@ export function Footer() {
           <div>
             <h4 className="mb-3 text-[12px] font-bold uppercase tracking-wider text-white/80">Features</h4>
             <ul className="space-y-2 text-[13px]">
+              <li><Link to={paths.favorites()} className="text-fg-subtle hover:text-accent transition">Favorites / Watchlist</Link></li>
+              <li><Link to={paths.history()} className="text-fg-subtle hover:text-accent transition">Watch History</Link></li>
               <li><Link to={paths.downloads()} className="text-fg-subtle hover:text-accent transition">Downloads & Offline</Link></li>
-              <li><Link to={paths.library()} className="text-fg-subtle hover:text-accent transition">My Watchlist</Link></li>
               <li><Link to={paths.addons()} className="text-fg-subtle hover:text-accent transition">Addons & Catalogs</Link></li>
-              <li><Link to={paths.settings()} className="text-fg-subtle hover:text-accent transition">Settings & Themes</Link></li>
+              <li><Link to={paths.settings()} className="text-fg-subtle hover:text-accent transition">Settings</Link></li>
             </ul>
           </div>
         </div>

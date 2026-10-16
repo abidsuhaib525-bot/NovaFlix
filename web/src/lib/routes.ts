@@ -55,7 +55,9 @@ export const paths = {
     return `/watch/${provider}/${encodeURIComponent(id)}${suffix ? `?${suffix}` : ''}`;
   },
 
-  library: () => '/library',
+  library: () => '/favorites',
+  favorites: () => '/favorites',
+  history: () => '/history',
   downloads: () => '/downloads',
   addons: () => '/addons',
   settings: () => '/settings',
