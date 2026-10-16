@@ -46,6 +46,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState::new(store);
     state.spawn_background_tasks();
 
+    // Autonomous cloud keep-alive watchdog:
+    // When running on a cloud container host (PORT is set or KEEPALIVE_URL is configured),
+    // periodically ping the public health endpoint every 90 seconds to reset host idle timers.
+    if let Ok(url) = std::env::var("KEEPALIVE_URL").or_else(|_| {
+        if std::env::var("PORT").is_ok() {
+            Ok("https://123.fluxcode.blitz.cloud/api/health".to_string())
+        } else {
+            Err(std::env::VarError::NotPresent)
+        }
+    }) {
+        let http = state.http.clone();
+        tokio::spawn(async move {
+            log::info!("cloud keep-alive watchdog active for {url} (interval: 90s)");
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(90));
+            interval.tick().await;
+            loop {
+                interval.tick().await;
+                match http.get(&url).send().await {
+                    Ok(resp) => {
+                        log::debug!("keep-alive ping to {url}: status {}", resp.status());
+                    }
+                    Err(err) => {
+                        log::debug!("keep-alive ping to {url} error: {err}");
+                    }
+                }
+            }
+        });
+    }
+
     let app = moviebox_web::api::app_router(state, &args.web_root);
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;

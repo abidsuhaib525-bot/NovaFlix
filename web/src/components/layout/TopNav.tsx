@@ -106,7 +106,7 @@ export function TopNav() {
         <Link
           to={paths.home()}
           className="group flex shrink-0 items-center gap-3 transition transform hover:scale-[1.02]"
-          aria-label="NovaFlix home"
+          aria-label="NovaFlixZone home"
         >
           <span className="relative flex size-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-accent via-rose-500 to-amber-400 p-[1.5px] shadow-[0_0_24px_var(--accent)] transition duration-300 group-hover:shadow-[0_0_35px_var(--accent)]">
             <span className="flex size-full items-center justify-center rounded-[14px] bg-[#09090e]/90 backdrop-blur-md">
@@ -115,7 +115,7 @@ export function TopNav() {
           </span>
           <div className="flex items-center gap-1.5">
             <span className="font-display text-[22px] font-black tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
-              Nova<span className="text-accent">Flix</span>
+              NovaFlix<span className="text-accent">Zone</span>
             </span>
             <span className="rounded-full bg-accent/20 border border-accent/40 px-2 py-0.5 text-[9.5px] font-black uppercase tracking-widest text-accent shadow-[0_0_12px_var(--accent-subtle)]">
               4K

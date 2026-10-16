@@ -37,7 +37,7 @@ if (!container) {
 
 createRoot(container).render(
   <StrictMode>
-    <ErrorBoundary fallbackTitle="NovaFlix encountered an unexpected error">
+    <ErrorBoundary fallbackTitle="NovaFlixZone encountered an unexpected error">
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <App />

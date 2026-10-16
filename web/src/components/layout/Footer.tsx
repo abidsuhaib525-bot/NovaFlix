@@ -26,7 +26,7 @@ export function Footer() {
                 <Clapperboard className="size-4" aria-hidden="true" />
               </span>
               <span className="font-display text-[20px] font-black tracking-tight text-white">
-                Nova<span className="text-accent">Flix</span>
+                NovaFlix<span className="text-accent">Zone</span>
               </span>
               <span className="rounded-md bg-white/[0.08] px-2 py-0.5 text-[11px] font-medium text-white/60">
                 v{health?.version ?? '2.0'}
@@ -59,7 +59,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/[0.06] pt-6 sm:flex-row text-[12px] text-fg-subtle">
-          <p>&copy; {new Date().getFullYear()} NovaFlix. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} NovaFlixZone. All rights reserved.</p>
           <p className="text-[11.5px] opacity-70">
             Powered by high-performance local streaming engine.
           </p>

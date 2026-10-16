@@ -557,7 +557,7 @@ function StageFrame({
           {stepMessages[step]}
         </p>
         <p className="text-[11.5px] text-white/50">
-          NovaFlix 4K Stream Engine
+          NovaFlixZone 4K Stream Engine
         </p>
       </div>
 

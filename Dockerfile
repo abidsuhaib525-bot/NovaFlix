@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for NovaFlix
+# Multi-stage Dockerfile for NovaFlixZone
 # 1. Build the React frontend
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app/web

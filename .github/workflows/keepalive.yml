@@ -1,0 +1,17 @@
+name: Backend Keepalive 24/7
+
+on:
+  schedule:
+    # Run every 5 minutes to keep Blitz Cloud container awake
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Ping Health Endpoint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Blitz Cloud
+        run: |
+          response=$(curl -s -w "\n%{http_code}" -m 20 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0 Safari/537.36" https://123.fluxcode.blitz.cloud/api/health)
+          echo "Response: $response"

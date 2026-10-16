@@ -1,5 +1,5 @@
 ---
-title: NovaFlix
+title: NovaFlixZone
 emoji: 🎬
 colorFrom: red
 colorTo: purple
@@ -9,7 +9,7 @@ app_port: 7860
 
 <div align="center">
 
-# 🎬 NovaFlix
+# 🎬 NovaFlixZone
 
 **A modern, cinema-grade web streaming platform with ultra-low latency playback, multi-source resolution switching, rich cast metadata, and sleek responsive UI.**
 
