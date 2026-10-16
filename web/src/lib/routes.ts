@@ -35,7 +35,13 @@ export const paths = {
   /** One homepage tab's full listing. */
   tab: (tabId: string) => `/tab/${encodeURIComponent(tabId)}`,
 
-  search: (query?: string) => (query ? `/search?q=${encodeURIComponent(query)}` : '/search'),
+  search: (query?: string, provider: ProviderKind = 'moviebox') => {
+    const p = new URLSearchParams();
+    if (query) p.set('q', query);
+    if (provider) p.set('provider', provider);
+    const suffix = p.toString();
+    return suffix ? `/search?${suffix}` : '/search';
+  },
 
   title: (provider: ProviderKind, id: string) =>
     `/title/${provider}/${encodeURIComponent(id)}`,

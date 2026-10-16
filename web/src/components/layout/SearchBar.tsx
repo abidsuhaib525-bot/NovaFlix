@@ -98,7 +98,7 @@ export function SearchBar({ className = '' }: { className?: string }) {
     const currentParams = new URLSearchParams(location.search);
     const isSameSearch = location.pathname.startsWith('/search') && currentParams.get('q') === query;
     if (!isSameSearch) {
-      navigate(paths.search(query));
+      navigate(paths.search(query, 'moviebox'));
     }
   };
 

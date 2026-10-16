@@ -35,11 +35,12 @@ export function SettingsPage() {
   useEffect(() => {
     if (current.data) {
       const localProvider = localStorage.getItem('novaflix_active_provider') as ProviderKind | null;
-      if (localProvider && localProvider !== current.data.active_provider) {
-        setDraft({ ...current.data, active_provider: localProvider });
-      } else {
-        setDraft(current.data);
-      }
+      const validProvider =
+        localProvider && ['moviebox', 'fourkhdhub', 'dramachi'].includes(localProvider)
+          ? localProvider
+          : (current.data.active_provider === 'dramachi' ? 'moviebox' : (current.data.active_provider || 'moviebox'));
+      setDraft({ ...current.data, active_provider: validProvider });
+      localStorage.setItem('novaflix_active_provider', validProvider);
     }
   }, [current.data]);
 
@@ -240,7 +241,8 @@ function ProviderSection({
                     className="accent-[var(--accent)]"
                   />
                   <span className={draft.active_provider === provider.kind ? 'font-bold text-accent' : ''}>
-                    Use for search {draft.active_provider === provider.kind ? '(Active)' : ''}
+                    Default search provider {draft.active_provider === provider.kind ? '(Active)' : ''}{' '}
+                    {provider.kind === 'moviebox' ? '⭐ Recommended' : ''}
                   </span>
                 </label>
               </div>
