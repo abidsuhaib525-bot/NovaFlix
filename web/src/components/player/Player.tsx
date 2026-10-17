@@ -352,11 +352,29 @@ export function Player({
     [menuOpen, episodesOpen, togglePlay],
   );
 
+  const lastTapRef = useRef<number>(0);
+  const handleTouchEnd = useCallback(
+    (event: React.TouchEvent<HTMLDivElement>) => {
+      const el = event.target as HTMLElement;
+      if (el.closest(CHROME_SELECTOR)) return;
+      const now = Date.now();
+      if (now - lastTapRef.current < 320) {
+        // Mobile double tap detected
+        void toggleFullscreen();
+        lastTapRef.current = 0;
+      } else {
+        lastTapRef.current = now;
+      }
+    },
+    [toggleFullscreen],
+  );
+
   return (
     <div
       ref={containerRef}
-      className="group/player relative h-full w-full overflow-hidden bg-black select-none flex items-center justify-center"
+      className="group/player relative h-full w-full overflow-hidden bg-black select-none flex items-center justify-center touch-manipulation"
       onClick={handleBackdropClick}
+      onTouchEnd={handleTouchEnd}
       onDoubleClick={(event) => {
         const el = event.target as HTMLElement;
         if (el.closest(CHROME_SELECTOR)) return;

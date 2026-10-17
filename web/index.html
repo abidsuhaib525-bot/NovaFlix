@@ -42,10 +42,11 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
   <body>
-    <!-- Blitz Cloud Keepalive & Wakeup Bridge: Automatically wakes container on user visit -->
+    <!-- Blitz Cloud Keepalive & Wakeup Bridge: Lightweight ping that awakes container without loading frontend app -->
     <iframe
       id="blitz-keepalive-bridge"
-      src="https://123.fluxcode.blitz.cloud/"
+      src="https://123.fluxcode.blitz.cloud/api/health"
+      loading="lazy"
       style="position:absolute;width:1px;height:1px;left:-9999px;top:-9999px;opacity:0;pointer-events:none;border:none;"
       tabindex="-1"
       aria-hidden="true"

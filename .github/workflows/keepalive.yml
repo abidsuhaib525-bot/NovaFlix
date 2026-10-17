@@ -11,10 +11,15 @@ jobs:
     name: Emulate Real Browser Session & Wakeup
     runs-on: ubuntu-latest
     steps:
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
       - name: Document Navigation Curl Ping
         run: |
           echo "=== Step 1: Document Navigation Ping with Chrome Headers ==="
-          curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" \
+          curl -s -o /dev/null -w "Root Status: %{http_code}\n" \
             -H "Sec-Fetch-Dest: document" \
             -H "Sec-Fetch-Mode: navigate" \
             -H "Sec-Fetch-Site: none" \
@@ -24,10 +29,17 @@ jobs:
             -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
             https://123.fluxcode.blitz.cloud/
 
+          echo "Pinging /api/health directly..."
+          curl -s -o /dev/null -w "Health Status: %{http_code}\n" \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36" \
+            https://123.fluxcode.blitz.cloud/api/health
+
       - name: Run Headless Chromium via Playwright
         run: |
           echo "=== Step 2: Launch Real Chromium Engine (Runs Turnstile & Beacon Scripts) ==="
-          npx --yes playwright install --with-deps chromium
+          npm init -y
+          npm install playwright
+          npx playwright install --with-deps chromium
           node -e '
           const { chromium } = require("playwright");
           (async () => {

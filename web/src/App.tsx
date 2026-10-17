@@ -14,6 +14,7 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { Toaster } from '@/components/common/Toaster';
 import { ErrorState, SkeletonRail } from '@/components/common/StateBlocks';
 import { Footer } from '@/components/layout/Footer';
+import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { TopNav } from '@/components/layout/TopNav';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 const HomePage = lazy(() => import('@/pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -94,8 +95,8 @@ export function App() {
           isWatch
             ? 'h-full w-full flex-1 overflow-hidden bg-black'
             : isHeroPage
-            ? 'flex-1'
-            : 'flex-1 pt-20 sm:pt-24'
+            ? 'flex-1 pb-20 md:pb-0'
+            : 'flex-1 pt-20 sm:pt-24 pb-20 md:pb-0'
         }
       >
         <Suspense fallback={<RouteFallback />}>
@@ -141,6 +142,7 @@ export function App() {
       </main>
 
       {!isWatch && <Footer />}
+      {!isWatch && <MobileBottomNav />}
       <Toaster />
     </div>
   );

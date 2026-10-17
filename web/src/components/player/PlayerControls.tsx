@@ -240,8 +240,8 @@ export function PlayerControls({
             <RotateCw className="size-5" />
           </IconButton>
 
-          {/* Volume: icon plus a slider that reveals on hover/focus. */}
-          <div className="group/vol flex items-center">
+          {/* Volume: hidden on mobile phones where physical keys are used */}
+          <div className="group/vol hidden sm:flex items-center">
             <IconButton
               label={state.muted ? 'Unmute' : 'Mute'}
               onClick={controller.toggleMute}
@@ -261,20 +261,20 @@ export function PlayerControls({
             />
           </div>
 
-          <span className="ml-1.5 text-[12.5px] font-medium tabular-nums text-white/85">
+          <span className="ml-1 text-[11.5px] sm:text-[12.5px] font-medium tabular-nums text-white/85 shrink-0">
             {formatDuration(state.currentTime)}
             <span className="text-white/45"> / {formatDuration(state.duration)}</span>
           </span>
 
-          <div className="flex-1" />
+          <div className="flex-1 min-w-[4px]" />
 
           {showNext && (
             <button
               type="button"
               onClick={onNext}
-              className="mr-1 inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1.5 text-[12px] font-semibold text-white transition hover:bg-white/25"
+              className="mr-1 inline-flex items-center gap-1 rounded-full bg-white/15 px-2.5 py-1 text-[11px] sm:text-[12px] font-semibold text-white transition hover:bg-white/25 shrink-0"
             >
-              <SkipForward className="size-4" />
+              <SkipForward className="size-3.5 sm:size-4" />
               Next
             </button>
           )}
@@ -288,7 +288,7 @@ export function PlayerControls({
               controller.setRate(nextSpeed);
             }}
             title="Click to change playback speed"
-            className={`inline-flex cursor-pointer items-center rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums transition border ${
+            className={`hidden sm:inline-flex cursor-pointer items-center rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums transition border ${
               state.playbackRate !== 1
                 ? 'bg-accent/20 border-accent/40 text-accent'
                 : 'bg-white/10 border-white/10 text-white/80 hover:bg-white/20 hover:text-white'
@@ -303,18 +303,20 @@ export function PlayerControls({
             </IconButton>
           )}
 
-          {/* Display & Screen Aspect Ratio Quick Toggle & Menu */}
-          <IconButton
-            label={`Display (${aspectRatio.toUpperCase()})`}
-            onClick={() => {
-              if (onCycleAspectRatio) onCycleAspectRatio();
-              else onToggleMenu('aspect_ratio');
-            }}
-          >
-            <Scaling className={`size-5 ${aspectRatio !== 'contain' ? 'text-accent' : ''}`} />
-          </IconButton>
+          {/* Display & Screen Aspect Ratio Quick Toggle (desktop) */}
+          <div className="hidden sm:flex">
+            <IconButton
+              label={`Display (${aspectRatio.toUpperCase()})`}
+              onClick={() => {
+                if (onCycleAspectRatio) onCycleAspectRatio();
+                else onToggleMenu('aspect_ratio');
+              }}
+            >
+              <Scaling className={`size-5 ${aspectRatio !== 'contain' ? 'text-accent' : ''}`} />
+            </IconButton>
+          </div>
 
-          {/* Unified Settings Icon (Quality, Audio, Dubs, Subs, Speed, Shortcuts) */}
+          {/* Unified Settings Icon (Quality, Audio, Dubs, Subs, Speed) */}
           <IconButton
             label={`Settings · ${qualityBadge}`}
             onClick={() => onToggleMenu(activeMenu ? activeMenu : 'quality')}
@@ -322,20 +324,26 @@ export function PlayerControls({
             <Settings2 className={`size-5 ${activeMenu ? 'text-accent' : ''}`} />
           </IconButton>
 
-          <IconButton label="Picture in picture" onClick={controller.togglePip}>
-            <PictureInPicture2 className="size-5" />
-          </IconButton>
+          {/* PIP button (desktop only) */}
+          <div className="hidden md:flex">
+            <IconButton label="Picture in picture" onClick={controller.togglePip}>
+              <PictureInPicture2 className="size-5" />
+            </IconButton>
+          </div>
 
-          <IconButton
-            label={controller.fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          {/* Fullscreen Button: Always visible and sized for easy mobile tap */}
+          <button
+            type="button"
             onClick={controller.toggleFullscreen}
+            aria-label={controller.fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            className="flex size-9 sm:size-8 items-center justify-center rounded-lg text-white hover:text-accent hover:bg-white/10 active:scale-95 transition shrink-0 ml-0.5"
           >
             {controller.fullscreen ? (
               <Minimize className="size-5" />
             ) : (
               <Maximize className="size-5" />
             )}
-          </IconButton>
+          </button>
         </div>
       </div>
     </div>

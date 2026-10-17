@@ -66,12 +66,14 @@ const FEATURED = 20;
 const RAIL_COUNT = 4;
 
 export function HomePage() {
-  // Tab 1 is "For You": the broad mixed feed.
+  // Tab 1 is "For You": the broad mixed feed that powers the Hero and first impression.
   const deck = useHomepage('1');
-  const hollywoodDeck = useHomepage('19'); // Hollywood
-  const bollywoodDeck = useHomepage('2'); // Bollywood
-  const animeDeck = useHomepage('8'); // Anime
-  const seriesDeck = useHomepage('5'); // TV Series
+  // Secondary decks load after primary deck resolves to eliminate mobile network congestion.
+  const primaryLoaded = Boolean(deck.data);
+  const hollywoodDeck = useHomepage('19', 1, primaryLoaded); // Hollywood
+  const bollywoodDeck = useHomepage('2', 1, primaryLoaded); // Bollywood
+  const animeDeck = useHomepage('8', 1, primaryLoaded); // Anime
+  const seriesDeck = useHomepage('5', 1, primaryLoaded); // TV Series
   const rails = useBrowseRails();
   const history = useHistory();
   const favorites = useFavorites();

@@ -12,7 +12,7 @@
  * instead of erroring, so a hardcoded copy in the client could rot invisibly.
  */
 
-import { Clapperboard, Heart, History, Menu, Puzzle, Settings, X } from 'lucide-react';
+import { Clapperboard, Heart, History, Menu, Puzzle, Search, Settings, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 
@@ -39,6 +39,7 @@ export function TopNav() {
   const setNavOpen = useUiStore((state) => state.setNavOpen);
 
   const [scrolled, setScrolled] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -47,8 +48,11 @@ export function TopNav() {
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
-  // Collapse the drawer on navigation.
-  useEffect(() => setNavOpen(false), [location.pathname, setNavOpen]);
+  // Collapse drawer and search on navigation.
+  useEffect(() => {
+    setNavOpen(false);
+    setMobileSearchOpen(false);
+  }, [location.pathname, setNavOpen]);
 
   const actions = ACTIONS;
 
@@ -112,7 +116,23 @@ export function TopNav() {
           ))}
         </nav>
 
-        <SearchBar className="ml-auto w-full max-w-xs lg:max-w-sm" />
+        {/* Wide/tablet screen search bar */}
+        <div className="hidden sm:block ml-auto w-full max-w-xs lg:max-w-sm">
+          <SearchBar className="w-full" />
+        </div>
+
+        {/* Mobile search toggle button */}
+        <button
+          type="button"
+          onClick={() => {
+            setMobileSearchOpen(!mobileSearchOpen);
+            if (navOpen) setNavOpen(false);
+          }}
+          aria-label={mobileSearchOpen ? 'Close search' : 'Open search'}
+          className="ml-auto grid size-9 shrink-0 place-items-center rounded-lg text-fg-muted transition hover:bg-bg-hover hover:text-fg-default sm:hidden"
+        >
+          {mobileSearchOpen ? <X className="size-5 text-accent" /> : <Search className="size-5" />}
+        </button>
 
         <div className="hidden shrink-0 items-center gap-0.5 md:flex">
           {actions.map(({ to, label, icon: Icon }) => (
@@ -134,7 +154,10 @@ export function TopNav() {
 
         <button
           type="button"
-          onClick={() => setNavOpen(!navOpen)}
+          onClick={() => {
+            setNavOpen(!navOpen);
+            if (mobileSearchOpen) setMobileSearchOpen(false);
+          }}
           aria-expanded={navOpen}
           aria-controls="nav-drawer"
           aria-label={navOpen ? 'Close menu' : 'Open menu'}
@@ -143,6 +166,17 @@ export function TopNav() {
           {navOpen ? <X className="size-5" aria-hidden="true" /> : <Menu className="size-5" aria-hidden="true" />}
         </button>
       </div>
+
+      {/* Expandable Mobile Search Bar */}
+      {mobileSearchOpen && (
+        <div className="border-t border-white/[0.08] bg-[#07070a]/95 px-4 py-3 backdrop-blur-2xl sm:hidden animate-fade-in shadow-xl">
+          <SearchBar
+            autoFocus
+            className="w-full"
+            onSearchSubmitted={() => setMobileSearchOpen(false)}
+          />
+        </div>
+      )}
 
       {/* Narrow-screen drawer. Rendered rather than hidden with CSS so it is out
           of the tab order when closed. */}

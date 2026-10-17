@@ -25,24 +25,26 @@ import { useUiStore } from '@/store/ui';
 import './index.css';
 
 // Applied before the first render, not inside a component.
-applyTheme(useUiStore.getState().themeId);
+if (window.self === window.top) {
+  applyTheme(useUiStore.getState().themeId);
 
-const container = document.getElementById('root');
+  const container = document.getElementById('root');
 
-if (!container) {
-  // A hard failure with a clear cause beats a silent blank page. The only way
-  // this happens is a build/index.html mismatch.
-  throw new Error('MovieBox: #root is missing from index.html');
+  if (!container) {
+    // A hard failure with a clear cause beats a silent blank page. The only way
+    // this happens is a build/index.html mismatch.
+    throw new Error('NovaFlixZone: #root is missing from index.html');
+  }
+
+  createRoot(container).render(
+    <StrictMode>
+      <ErrorBoundary fallbackTitle="NovaFlixZone encountered an unexpected error">
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </StrictMode>,
+  );
 }
-
-createRoot(container).render(
-  <StrictMode>
-    <ErrorBoundary fallbackTitle="NovaFlixZone encountered an unexpected error">
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </QueryClientProvider>
-    </ErrorBoundary>
-  </StrictMode>,
-);

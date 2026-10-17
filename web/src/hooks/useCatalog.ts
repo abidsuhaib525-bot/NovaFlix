@@ -242,13 +242,14 @@ export function useHomepageTabs(): UseQueryResult<HomepageTab[]> {
   });
 }
 
-export function useHomepage(tabId: string, page = 1): UseQueryResult<HomeDeckResponse> {
+export function useHomepage(tabId: string, page = 1, enabled = true): UseQueryResult<HomeDeckResponse> {
   return useQuery({
     queryKey: keys.homepage(tabId, page),
     queryFn: () => api.homepage(tabId, page),
     staleTime: 10 * 60_000,
     gcTime: 30 * 60_000,
     retry: 1,
+    enabled,
   });
 }
 

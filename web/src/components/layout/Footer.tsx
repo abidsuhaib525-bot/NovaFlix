@@ -18,7 +18,7 @@ export function Footer() {
 
   return (
     <footer className="mt-24 border-t border-white/[0.08] bg-[#07070a]/80 backdrop-blur-md">
-      <div className="mx-auto max-w-[1600px] px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1600px] px-4 pt-12 pb-24 sm:py-12 lg:px-8">
         <div className="grid gap-8 md:grid-cols-4">
           <div className="space-y-3 md:col-span-2">
             <div className="flex items-center gap-2.5">

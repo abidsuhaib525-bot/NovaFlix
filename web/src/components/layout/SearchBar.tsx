@@ -24,7 +24,15 @@ import { paths } from '@/lib/routes';
  */
 const DEBOUNCE_MS = 220;
 
-export function SearchBar({ className = '' }: { className?: string }) {
+export function SearchBar({
+  className = '',
+  autoFocus = false,
+  onSearchSubmitted,
+}: {
+  className?: string;
+  autoFocus?: boolean;
+  onSearchSubmitted?: () => void;
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const listId = useId();
@@ -95,6 +103,7 @@ export function SearchBar({ className = '' }: { className?: string }) {
     if (!query) return;
     setOpen(false);
     input.current?.blur();
+    onSearchSubmitted?.();
     const currentParams = new URLSearchParams(location.search);
     const isSameSearch = location.pathname.startsWith('/search') && currentParams.get('q') === query;
     if (!isSameSearch) {
@@ -122,6 +131,7 @@ export function SearchBar({ className = '' }: { className?: string }) {
           <input
             ref={input}
             type="search"
+            autoFocus={autoFocus}
             value={text}
             onChange={(event) => {
               setText(event.target.value);
