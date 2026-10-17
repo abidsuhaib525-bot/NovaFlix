@@ -146,6 +146,17 @@ function WatchInner({
   const settings = useSettings();
   const navigate = useNavigate();
 
+  const [activeResourceId, setActiveResourceId] = useState<string | null>(resourceId);
+  const [activeQuality, setActiveQuality] = useState<number | null>(quality);
+  const [activeMirror, setActiveMirror] = useState<number | null>(mirror);
+
+  const handleSelectRelease = (rel: Release) => {
+    const h = parseQualityHeight(rel.quality) ?? parseQualityHeight(rel.filename);
+    setActiveResourceId(rel.resource_id ?? null);
+    setActiveQuality(h);
+    setActiveMirror(0);
+  };
+
   const title = cleanTitle(details.data?.title ?? 'Now playing');
   const seasons = details.data?.seasons ?? NO_SEASONS;
 
@@ -250,17 +261,6 @@ function WatchInner({
       </div>
     );
   }
-
-  const [activeResourceId, setActiveResourceId] = useState<string | null>(resourceId);
-  const [activeQuality, setActiveQuality] = useState<number | null>(quality);
-  const [activeMirror, setActiveMirror] = useState<number | null>(mirror);
-
-  const handleSelectRelease = (rel: Release) => {
-    const h = parseQualityHeight(rel.quality) ?? parseQualityHeight(rel.filename);
-    setActiveResourceId(rel.resource_id ?? null);
-    setActiveQuality(h);
-    setActiveMirror(0);
-  };
 
   return (
     <div className="relative h-full w-full bg-black">

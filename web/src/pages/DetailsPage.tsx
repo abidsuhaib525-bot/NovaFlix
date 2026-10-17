@@ -70,6 +70,35 @@ function DetailsView({ provider, id }: { provider: ProviderKind; id: string }) {
   const activeId = selectedDubId || id;
   const streams = useStreams(provider, activeId, season, isSeries ? episode : 0);
 
+  // Normalise available audio dubs (English/Original, Hindi, etc.)
+  // MUST be called before any early returns to respect React's Rules of Hooks
+  const allDubs = useMemo(() => {
+    const dubsList = details.data?.dubs;
+    if (!dubsList || dubsList.length === 0) return [];
+    const list: AudioTrackOption[] = [];
+    const seen = new Set<string>();
+
+    const hasCurrent = dubsList.some((d) => d.subject_id === id);
+    if (!hasCurrent && id) {
+      list.push({
+        subject_id: id,
+        language: 'Original',
+        label: 'English (Original)',
+      });
+      seen.add(id);
+    }
+
+    for (const d of dubsList) {
+      if (!d.subject_id || seen.has(d.subject_id)) continue;
+      seen.add(d.subject_id);
+      list.push(d);
+    }
+    return list;
+  }, [details.data?.dubs, id]);
+
+  const hasDubs = allDubs.length > 1;
+  const activeDub = allDubs.find((d) => d.subject_id === activeId);
+
   if (details.isPending) return <DetailsSkeleton />;
 
   if (details.isError) {
@@ -94,33 +123,6 @@ function DetailsView({ provider, id }: { provider: ProviderKind; id: string }) {
   // presentation decision and must not change what gets asked of the backend.
   const title = cleanTitle(item.title);
   const editionTags = extractEditionTags(item.title);
-
-  // Normalise available audio dubs (English/Original, Hindi, etc.)
-  const allDubs = useMemo(() => {
-    if (!item?.dubs || item.dubs.length === 0) return [];
-    const list: AudioTrackOption[] = [];
-    const seen = new Set<string>();
-
-    const hasCurrent = item.dubs.some((d) => d.subject_id === id);
-    if (!hasCurrent && id) {
-      list.push({
-        subject_id: id,
-        language: 'Original',
-        label: 'English (Original)',
-      });
-      seen.add(id);
-    }
-
-    for (const d of item.dubs) {
-      if (!d.subject_id || seen.has(d.subject_id)) continue;
-      seen.add(d.subject_id);
-      list.push(d);
-    }
-    return list;
-  }, [item?.dubs, id]);
-
-  const hasDubs = allDubs.length > 1;
-  const activeDub = allDubs.find((d) => d.subject_id === activeId);
 
 
   return (
