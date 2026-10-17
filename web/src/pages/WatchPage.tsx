@@ -37,8 +37,8 @@ import {
   usePlayback,
   useProgressSaver,
 } from '@/hooks/usePlayback';
-import { clearLocalProgress, getLocalProgress } from '@/lib/playbackProgress';
-import { cleanTitle, formatDuration } from '@/lib/format';
+import { clearLocalProgress, getLocalProgress, saveLocalProgress } from '@/lib/playbackProgress';
+import { cleanTitle, formatDuration, parseQualityHeight } from '@/lib/format';
 import { api } from '@/lib/api';
 import { isProviderKind, paths, readIndex } from '@/lib/routes';
 import type { AudioTrackOption, ProviderKind, Release, Season, SubtitleOption } from '@/types';
@@ -68,15 +68,24 @@ export function WatchPage() {
   } else if (seasonIdx === 0) {
     resolvedEpisode = 0;
   }
+
+  const queryResourceId = params.get('resourceId') || params.get('resource_id');
+  const queryQuality = params.get('quality') ? Number(params.get('quality')) : null;
+  const queryMirror = params.get('mirror') ? Number(params.get('mirror')) : null;
+
+  const resolvedResourceId = state?.resourceId ?? queryResourceId ?? null;
+  const resolvedQuality = state?.quality ?? (queryQuality && !Number.isNaN(queryQuality) ? queryQuality : null);
+  const resolvedMirror = state?.mirror ?? (queryMirror && !Number.isNaN(queryMirror) ? queryMirror : null);
+
   return (
     <WatchInner
       provider={rawProvider}
       id={id}
       season={seasonIdx}
       episode={resolvedEpisode}
-      resourceId={state?.resourceId ?? null}
-      mirror={state?.mirror ?? null}
-      quality={state?.quality ?? null}
+      resourceId={resolvedResourceId}
+      mirror={resolvedMirror}
+      quality={resolvedQuality}
     />
   );
 }
@@ -242,6 +251,17 @@ function WatchInner({
     );
   }
 
+  const [activeResourceId, setActiveResourceId] = useState<string | null>(resourceId);
+  const [activeQuality, setActiveQuality] = useState<number | null>(quality);
+  const [activeMirror, setActiveMirror] = useState<number | null>(mirror);
+
+  const handleSelectRelease = (rel: Release) => {
+    const h = parseQualityHeight(rel.quality) ?? parseQualityHeight(rel.filename);
+    setActiveResourceId(rel.resource_id ?? null);
+    setActiveQuality(h);
+    setActiveMirror(0);
+  };
+
   return (
     <div className="relative h-full w-full bg-black">
       <PlayerStage
@@ -250,9 +270,9 @@ function WatchInner({
         id={id}
         season={effectiveSeason}
         episode={effectiveEpisode}
-        resourceId={resourceId}
-        mirror={mirror}
-        quality={quality}
+        resourceId={activeResourceId}
+        mirror={activeMirror}
+        quality={activeQuality}
         releases={streams.data ?? NO_RELEASES}
         releasesLoading={streams.isLoading}
         releasesError={streams.isError}
@@ -271,9 +291,18 @@ function WatchInner({
         dubs={details.data?.dubs ?? []}
         onSelectDub={(dub) => {
           if (dub.subject_id && dub.subject_id !== id) {
-            navigate(paths.watch(p, dub.subject_id, { season: effectiveSeason, episode: effectiveEpisode }));
+            const qParams = new URLSearchParams();
+            if (activeQuality) qParams.set('quality', String(activeQuality));
+            if (effectiveSeason > 0) qParams.set('season', String(effectiveSeason));
+            if (effectiveEpisode > 0) qParams.set('episode', String(effectiveEpisode));
+            const qs = qParams.toString();
+            const targetPath = paths.watch(p, dub.subject_id, { season: effectiveSeason, episode: effectiveEpisode });
+            navigate(qs ? `${targetPath}?${qs}` : targetPath, {
+              state: { quality: activeQuality, resourceId: activeResourceId },
+            });
           }
         }}
+        onSelectRelease={handleSelectRelease}
       />
     </div>
   );
@@ -302,6 +331,7 @@ function PlayerStage({
   onBack,
   dubs,
   onSelectDub,
+  onSelectRelease,
 }: {
   provider: ProviderKind;
   id: string;
@@ -325,13 +355,14 @@ function PlayerStage({
   onBack: () => void;
   dubs?: AudioTrackOption[];
   onSelectDub?: (dub: AudioTrackOption) => void;
+  onSelectRelease?: (rel: Release) => void;
 }) {
   // Which release will play, asked before a session exists. Checking
   // `releases[0]` instead would test the wrong release the moment the details
   // page pointed at a specific one.
   const candidate = useMemo(
-    () => pickRelease(releases, resourceId, mirror),
-    [releases, resourceId, mirror],
+    () => pickRelease(releases, resourceId, mirror, quality),
+    [releases, resourceId, mirror, quality],
   );
 
   const siblingIds = useMemo(
@@ -499,6 +530,8 @@ function PlayerStage({
       dubs={dubs}
       currentDubId={id}
       onSelectDub={onSelectDub}
+      currentResourceId={resourceId}
+      onSelectRelease={onSelectRelease}
       progressPayload={{
         subject_id: id,
         provider,
@@ -615,6 +648,8 @@ function ShakaStage({
   dubs,
   currentDubId,
   onSelectDub,
+  currentResourceId,
+  onSelectRelease,
 }: {
   manifestUrl: string;
   proxyBase: string;
@@ -638,6 +673,8 @@ function ShakaStage({
   dubs?: AudioTrackOption[];
   currentDubId?: string;
   onSelectDub?: (dub: AudioTrackOption) => void;
+  currentResourceId?: string | null;
+  onSelectRelease?: (rel: Release) => void;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<PlayerLike | null>(null);
@@ -863,6 +900,31 @@ function ShakaStage({
     }
   };
 
+  const handleSelectDub = (dub: AudioTrackOption) => {
+    const video = videoRef.current;
+    if (video) {
+      const curTime = video.currentTime;
+      const curDur = video.duration;
+      if (curTime > 2 && progressPayload) {
+        saveLocalProgress(progressPayload.provider, dub.subject_id, currentSeason, currentEpisode, curTime, curDur);
+        saveLocalProgress(progressPayload.provider, progressPayload.subject_id, currentSeason, currentEpisode, curTime, curDur);
+      }
+    }
+    onSelectDub?.(dub);
+  };
+
+  const handleSelectRelease = (rel: Release) => {
+    const video = videoRef.current;
+    if (video) {
+      const curTime = video.currentTime;
+      const curDur = video.duration;
+      if (curTime > 2 && progressPayload) {
+        saveLocalProgress(progressPayload.provider, progressPayload.subject_id, currentSeason, currentEpisode, curTime, curDur);
+      }
+    }
+    onSelectRelease?.(rel);
+  };
+
   const externalSubtitles = useMemo(
     () =>
       subtitleTracks.map((s) => ({
@@ -906,8 +968,10 @@ function ShakaStage({
         }}
         dubs={dubs}
         currentDubId={currentDubId}
-        onSelectDub={onSelectDub}
+        onSelectDub={handleSelectDub}
         releases={releases}
+        currentResourceId={currentResourceId ?? _release.resource_id}
+        onSelectRelease={handleSelectRelease}
       />
     </div>
   );

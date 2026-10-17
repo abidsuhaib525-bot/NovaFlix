@@ -23,13 +23,15 @@ import {
   Scaling,
   Settings2,
   SkipForward,
+  Sliders,
   Volume1,
   Volume2,
   VolumeX,
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-import { formatDuration } from '@/lib/format';
+import { cleanDubLabel, formatDuration } from '@/lib/format';
+import type { AudioTrackOption } from '@/types';
 
 import type { AspectRatioMode, PlayerMenuTab } from './PlayerMenu';
 import type { PlayerController } from './usePlayerState';
@@ -198,6 +200,8 @@ export function PlayerControls({
   onNext,
   aspectRatio = 'contain',
   onCycleAspectRatio,
+  dubs = [],
+  currentDubId = '',
 }: {
   controller: PlayerController;
   /** Controls hide after inactivity while playing. */
@@ -211,6 +215,8 @@ export function PlayerControls({
   onNext: () => void;
   aspectRatio?: AspectRatioMode;
   onCycleAspectRatio?: () => void;
+  dubs?: AudioTrackOption[];
+  currentDubId?: string;
 }) {
   const { state } = controller;
   const VolumeIcon = volumeIcon(state.volume, state.muted);
@@ -221,6 +227,10 @@ export function PlayerControls({
       ? `${controller.activeHeight}p Auto`
       : 'Auto'
     : `${controller.activeHeight ?? 'HD'}p`;
+
+  const hasDubs = (dubs?.length ?? 0) > 0;
+  const activeDub = dubs?.find((d) => d.subject_id === currentDubId) ?? dubs?.[0];
+  const activeDubLabel = activeDub ? cleanDubLabel(activeDub.label || activeDub.language) : null;
 
   return (
     <div
@@ -322,6 +332,38 @@ export function PlayerControls({
               <Scaling className={`size-5 ${aspectRatio !== 'contain' ? 'text-accent' : ''}`} />
             </IconButton>
           </div>
+
+          {/* Audio Dub Quick Button (when dubs are available) */}
+          {hasDubs && (
+            <button
+              type="button"
+              onClick={() => onToggleMenu('audio_subs')}
+              title={`Audio Language: ${activeDubLabel ?? 'Select'} (Click to switch)`}
+              className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold transition border shrink-0 ${
+                activeMenu === 'audio_subs'
+                  ? 'bg-accent text-accent-contrast border-accent ring-1 ring-accent/30 shadow-sm'
+                  : 'bg-white/10 border-white/15 text-white/90 hover:bg-white/20 hover:text-white'
+              }`}
+            >
+              <Volume2 className="size-3.5 text-accent" />
+              <span className="max-w-[70px] sm:max-w-[100px] truncate">{activeDubLabel}</span>
+            </button>
+          )}
+
+          {/* Quick Quality Button */}
+          <button
+            type="button"
+            onClick={() => onToggleMenu('quality')}
+            title={`Video Quality: ${qualityBadge} (Click to change)`}
+            className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums transition border shrink-0 ${
+              activeMenu === 'quality'
+                ? 'bg-accent text-accent-contrast border-accent ring-1 ring-accent/30 shadow-sm'
+                : 'bg-white/10 border-white/15 text-white/90 hover:bg-white/20 hover:text-white'
+            }`}
+          >
+            <Sliders className="size-3" />
+            <span>{controller.activeHeight ? `${controller.activeHeight}p` : 'Auto'}</span>
+          </button>
 
           {/* Unified Settings Icon (Quality, Audio, Dubs, Subs, Speed) */}
           <IconButton

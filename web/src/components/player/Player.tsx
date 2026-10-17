@@ -80,6 +80,8 @@ export function Player({
   currentDubId = '',
   onSelectDub,
   releases = [],
+  currentResourceId,
+  onSelectRelease,
 }: {
   videoRef: RefObject<HTMLVideoElement | null>;
   containerRef: RefObject<HTMLDivElement | null>;
@@ -106,6 +108,8 @@ export function Player({
   currentDubId?: string;
   onSelectDub?: (dub: AudioTrackOption) => void;
   releases?: Release[];
+  currentResourceId?: string | null;
+  onSelectRelease?: (release: Release) => void;
 }) {
   const controller = usePlayerState({ videoRef, playerRef, containerRef, ready });
   const {
@@ -529,6 +533,8 @@ export function Player({
         onNext={onPlayNext}
         aspectRatio={aspectRatio}
         onCycleAspectRatio={cycleAspectRatio}
+        dubs={dubs}
+        currentDubId={currentDubId}
       />
 
       {activeMenu && (
@@ -544,6 +550,11 @@ export function Player({
               setActiveMenu(null);
             }}
             releases={releases}
+            currentResourceId={currentResourceId}
+            onSelectRelease={(rel) => {
+              onSelectRelease?.(rel);
+              setActiveMenu(null);
+            }}
             aspectRatio={aspectRatio}
             seasons={seasons}
             currentSeason={currentSeason}

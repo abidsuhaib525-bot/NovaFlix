@@ -7,6 +7,7 @@ import { Check, Gauge, Languages, ListVideo, Monitor, Scaling, Sliders, Volume2 
 import type { AudioTrackOption, Release, Season } from '@/types';
 import type { PlayerController } from './usePlayerState';
 import { variantLabel } from './tracks';
+import { formatBytes, parseQualityHeight } from '@/lib/format';
 
 export type PlayerMenuTab = 'episodes' | 'audio_subs' | 'quality' | 'aspect_ratio' | 'settings';
 
@@ -105,6 +106,8 @@ export function PlayerMenu({
   currentDubId = '',
   onSelectDub,
   releases = [],
+  currentResourceId,
+  onSelectRelease,
   aspectRatio = 'contain',
   onAspectRatioChange,
   seasons = [],
@@ -119,6 +122,8 @@ export function PlayerMenu({
   currentDubId?: string;
   onSelectDub?: (dub: AudioTrackOption) => void;
   releases?: Release[];
+  currentResourceId?: string | null;
+  onSelectRelease?: (release: Release) => void;
   aspectRatio?: AspectRatioMode;
   onAspectRatioChange?: (ratio: AspectRatioMode) => void;
   seasons?: Season[];
@@ -332,23 +337,49 @@ export function PlayerMenu({
       {/* Tab 2: Quality */}
       {activeTab === 'quality' && (
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-          <Section title="Resolution">
-            <Chip selected={abr} onClick={() => controller.selectQuality(null)} title="Adaptive Bitrate">
-              Auto {activeHeight ? `(${activeHeight}p)` : ''}
-            </Chip>
-            {quality.map((option) => (
-              <Chip
-                key={option.height}
-                selected={!abr && activeHeight === option.height}
-                onClick={() => controller.selectQuality(option.best)}
-                title={option.count > 1 ? `${option.count} renditions` : undefined}
-              >
-                {variantLabel(option.best)}
-              </Chip>
-            ))}
-          </Section>
+          {/* Source Releases from Provider (e.g. 4K, 1080p, 720p, 480p) */}
+          {releases.length > 0 && (
+            <Section title="Stream Quality / Resolution">
+              {releases.map((rel, idx) => {
+                const h = parseQualityHeight(rel.quality) ?? parseQualityHeight(rel.filename);
+                const qualityBadge = rel.quality || (h ? `${h}p` : `Stream ${idx + 1}`);
+                const isCurrent = currentResourceId ? rel.resource_id === currentResourceId : (idx === 0 && !currentResourceId);
+                const sizeBadge = rel.size_bytes ? formatBytes(rel.size_bytes) : null;
+                return (
+                  <Chip
+                    key={`${rel.resource_id || idx}:${qualityBadge}`}
+                    selected={isCurrent}
+                    onClick={() => onSelectRelease?.(rel)}
+                    title={rel.filename || undefined}
+                  >
+                    <span>{qualityBadge}</span>
+                    {sizeBadge && <span className="text-[10px] opacity-75">({sizeBadge})</span>}
+                  </Chip>
+                );
+              })}
+            </Section>
+          )}
 
-          {quality.length === 0 && releases.length > 0 && (
+          {/* Shaka Adaptive Bitrate Renditions (when stream provides multi-bitrate renditions) */}
+          {quality.length > 1 && (
+            <Section title="Adaptive Bitrate Rendition">
+              <Chip selected={abr} onClick={() => controller.selectQuality(null)} title="Adaptive Bitrate">
+                Auto {activeHeight ? `(${activeHeight}p)` : ''}
+              </Chip>
+              {quality.map((option) => (
+                <Chip
+                  key={option.height}
+                  selected={!abr && activeHeight === option.height}
+                  onClick={() => controller.selectQuality(option.best)}
+                  title={option.count > 1 ? `${option.count} renditions` : undefined}
+                >
+                  {variantLabel(option.best)}
+                </Chip>
+              ))}
+            </Section>
+          )}
+
+          {quality.length <= 1 && releases.length <= 1 && (
             <div className="rounded-lg bg-white/5 p-3 text-[12px] text-white/70">
               <p className="font-semibold text-white">Stream Quality: Direct {activeHeight ? `${activeHeight}p` : 'Source'}</p>
               <p className="mt-1 text-white/50">

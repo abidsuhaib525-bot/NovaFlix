@@ -10,7 +10,7 @@
  * for a movie the URL stays bare.
  */
 
-import { ArrowLeft, Calendar, Check, ChevronDown, Clock, Download, Film, Grid, Heart, List, Play, Share2, Sparkles, Star, Tv, User, Users, Video, X } from 'lucide-react';
+import { ArrowLeft, Calendar, Check, ChevronDown, Clock, Download, Film, Grid, Heart, Languages, List, Play, Share2, Sparkles, Star, Tv, User, Users, Video, Volume2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -25,11 +25,11 @@ import {
   useStreams,
   useToggleFavorite,
 } from '@/hooks/useCatalog';
-import { cleanTitle, extractEditionTags, formatBytes, formatRuntime } from '@/lib/format';
+import { cleanDubLabel, cleanTitle, extractEditionTags, formatBytes, formatRuntime, parseQualityHeight } from '@/lib/format';
 import { isProviderKind, paths, readIndex } from '@/lib/routes';
 import { api } from '@/lib/api';
 import { CastMember, fetchTmdbCast, fetchTmdbSeasonEpisodes, fetchTmdbTrailer, getTmdbImageUrl, searchTmdbMedia, TmdbEpisodeMeta } from '@/lib/tmdb';
-import type { MediaDetails, ProviderKind, Release } from '@/types';
+import type { AudioTrackOption, MediaDetails, ProviderKind, Release } from '@/types';
 import { notifyError, useUiStore } from '@/store/ui';
 
 /** Show this much of an overlong synopsis before collapsing it. */
@@ -61,7 +61,14 @@ function DetailsView({ provider, id }: { provider: ProviderKind; id: string }) {
   const season = readIndex(params.get('season')) ?? (isSeries ? 1 : 0);
   const episode = readIndex(params.get('episode')) ?? (isSeries ? 1 : 0);
 
-  const streams = useStreams(provider, id, season, isSeries ? episode : 0);
+  const [selectedDubId, setSelectedDubId] = useState<string>(id);
+
+  useEffect(() => {
+    setSelectedDubId(id);
+  }, [id]);
+
+  const activeId = selectedDubId || id;
+  const streams = useStreams(provider, activeId, season, isSeries ? episode : 0);
 
   if (details.isPending) return <DetailsSkeleton />;
 
@@ -87,6 +94,34 @@ function DetailsView({ provider, id }: { provider: ProviderKind; id: string }) {
   // presentation decision and must not change what gets asked of the backend.
   const title = cleanTitle(item.title);
   const editionTags = extractEditionTags(item.title);
+
+  // Normalise available audio dubs (English/Original, Hindi, etc.)
+  const allDubs = useMemo(() => {
+    if (!item?.dubs || item.dubs.length === 0) return [];
+    const list: AudioTrackOption[] = [];
+    const seen = new Set<string>();
+
+    const hasCurrent = item.dubs.some((d) => d.subject_id === id);
+    if (!hasCurrent && id) {
+      list.push({
+        subject_id: id,
+        language: 'Original',
+        label: 'English (Original)',
+      });
+      seen.add(id);
+    }
+
+    for (const d of item.dubs) {
+      if (!d.subject_id || seen.has(d.subject_id)) continue;
+      seen.add(d.subject_id);
+      list.push(d);
+    }
+    return list;
+  }, [item?.dubs, id]);
+
+  const hasDubs = allDubs.length > 1;
+  const activeDub = allDubs.find((d) => d.subject_id === activeId);
+
 
   return (
     <Frame>
@@ -184,10 +219,51 @@ function DetailsView({ provider, id }: { provider: ProviderKind; id: string }) {
 
             <MetaRow item={item} seasonCount={seasons.length} />
 
+            {/* Audio Language / Dubbing Selector - only displayed when dubbing is available */}
+            {hasDubs && (
+              <div className="space-y-2.5 rounded-2xl border border-white/10 bg-white/[0.04] p-3.5 sm:p-4 backdrop-blur-md animate-fade-in shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <Languages className="size-4 text-accent" />
+                    <span className="text-[12px] font-bold uppercase tracking-wider text-white/90">
+                      Audio Language / Dubbing Available
+                    </span>
+                  </div>
+                  <span className="text-[11.5px] text-white/50">
+                    Select language to play:
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2 pt-0.5">
+                  {allDubs.map((dub) => {
+                    const isSelected = dub.subject_id === activeId;
+                    const displayLabel = cleanDubLabel(dub.label || dub.language);
+                    return (
+                      <button
+                        key={dub.subject_id}
+                        type="button"
+                        onClick={() => setSelectedDubId(dub.subject_id)}
+                        className={`group inline-flex cursor-pointer items-center gap-2 rounded-xl px-3.5 py-2 text-[12.5px] font-semibold transition-all ${
+                          isSelected
+                            ? 'bg-accent text-accent-contrast shadow-[0_0_15px_var(--accent-subtle)] ring-1 ring-accent/40 scale-102 font-bold'
+                            : 'border border-white/10 bg-white/5 text-white/80 hover:border-white/20 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        <Volume2 className={`size-3.5 ${isSelected ? 'text-accent-contrast' : 'text-accent'}`} />
+                        <span>{displayLabel}</span>
+                        {isSelected && <Check className="size-3.5 stroke-[2.5]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <ActionRow
               item={item}
               provider={provider}
-              id={id}
+              id={activeId}
+              selectedDubLabel={activeDub?.label || activeDub?.language}
+              hasDubs={hasDubs}
               season={season}
               episode={isSeries ? episode : 0}
               streams={streams.data ?? []}
@@ -359,6 +435,8 @@ function ActionRow({
   item,
   provider,
   id,
+  selectedDubLabel,
+  hasDubs,
   season,
   episode,
   streams = [],
@@ -366,6 +444,8 @@ function ActionRow({
   item: MediaDetails;
   provider: ProviderKind;
   id: string;
+  selectedDubLabel?: string;
+  hasDubs?: boolean;
   season: number;
   episode: number;
   streams?: Release[];
@@ -377,6 +457,80 @@ function ActionRow({
   const [downloadFormat, setDownloadFormat] = useState<'mp4' | 'mkv'>('mp4');
   const [showTrailer, setShowTrailer] = useState(false);
   const [trailerKey, setTrailerKey] = useState<string | null>(null);
+
+  // Playback quality state
+  const [selectedQuality, setSelectedQuality] = useState<number | null>(null);
+  const [playQualityMenuOpen, setPlayQualityMenuOpen] = useState(false);
+
+  // Available playback qualities derived from streams
+  const availableQualities = useMemo(() => {
+    const list = streams ?? [];
+    const qualities: Array<{
+      height: number;
+      label: string;
+      badge: string;
+      size: string | null;
+      release: Release;
+    }> = [];
+
+    const seenHeights = new Set<number>();
+
+    for (const rel of list) {
+      const h = parseQualityHeight(rel.quality) ?? parseQualityHeight(rel.filename);
+      if (!h || seenHeights.has(h)) continue;
+      seenHeights.add(h);
+
+      let label = `${h}p`;
+      let badge = 'HD';
+      if (h >= 2160) {
+        label = '4K Ultra HD';
+        badge = '4K';
+      } else if (h >= 1080) {
+        label = '1080p Full HD';
+        badge = 'FHD';
+      } else if (h >= 720) {
+        label = '720p HD';
+        badge = 'HD';
+      } else if (h <= 480) {
+        label = '480p SD';
+        badge = 'SD';
+      }
+
+      qualities.push({
+        height: h,
+        label,
+        badge,
+        size: rel.size_bytes ? formatBytes(rel.size_bytes) : null,
+        release: rel,
+      });
+    }
+
+    qualities.sort((a, b) => b.height - a.height);
+    return qualities;
+  }, [streams]);
+
+  const selectedRelease = useMemo(() => {
+    if (!selectedQuality) return streams[0];
+    return (
+      streams.find((r) => {
+        const h = parseQualityHeight(r.quality) ?? parseQualityHeight(r.filename);
+        return h === selectedQuality;
+      }) ?? streams[0]
+    );
+  }, [streams, selectedQuality]);
+
+  const watchUrl = useMemo(() => {
+    const base = paths.watch(provider, id, { season, episode });
+    const qParams = new URLSearchParams();
+    if (selectedQuality) qParams.set('quality', String(selectedQuality));
+    if (selectedRelease?.resource_id) qParams.set('resourceId', selectedRelease.resource_id);
+    const qs = qParams.toString();
+    return qs ? `${base}?${qs}` : base;
+  }, [provider, id, season, episode, selectedQuality, selectedRelease]);
+
+  const activeQualityBadge = selectedQuality
+    ? (availableQualities.find((q) => q.height === selectedQuality)?.badge ?? `${selectedQuality}p`)
+    : (availableQualities[0]?.badge ?? 'Auto');
 
   useEffect(() => {
     let cancelled = false;
@@ -396,9 +550,9 @@ function ActionRow({
   }, [item.title, item.year, item.media_type]);
 
   const triggerDownload = (release?: Release, formatToUse?: 'mp4' | 'mkv') => {
-    const selectedRelease = release ?? streams[0];
-    const resourceId = selectedRelease?.resource_id ?? null;
-    const height = selectedRelease?.quality ? parseInt(selectedRelease.quality, 10) || null : null;
+    const selectedRel = release ?? streams[0];
+    const resourceId = selectedRel?.resource_id ?? null;
+    const height = selectedRel?.quality ? parseInt(selectedRel.quality, 10) || null : null;
     const targetFormat = formatToUse ?? downloadFormat;
 
     setQualityMenuOpen(false);
@@ -432,13 +586,122 @@ function ActionRow({
 
   return (
     <div className="mt-6 flex flex-wrap items-center gap-3">
-      <Link
-        to={paths.watch(provider, id, { season, episode })}
-        className="inline-flex cursor-pointer items-center gap-2.5 rounded-full bg-accent px-8 py-3.5 text-[14.5px] font-black text-accent-contrast shadow-[0_0_28px_var(--accent-subtle)] transition-all hover:scale-105 hover:shadow-[0_0_40px_var(--accent)] active:scale-95"
-      >
-        <Play className="size-4.5 fill-current" aria-hidden="true" />
-        {item.media_type === 'series' ? `Play S${season} E${episode}` : 'Play Now'}
-      </Link>
+      {/* Play button with Quality selector */}
+      <div className="relative">
+        <div className="inline-flex items-center rounded-full bg-accent text-accent-contrast shadow-[0_0_28px_var(--accent-subtle)] transition-all hover:scale-105 hover:shadow-[0_0_40px_var(--accent)] active:scale-95">
+          <Link
+            to={watchUrl}
+            state={{ quality: selectedQuality, resourceId: selectedRelease?.resource_id ?? null }}
+            className="inline-flex cursor-pointer items-center gap-2 rounded-l-full py-3.5 pl-7 pr-3 text-[14.5px] font-black transition"
+            title="Start movie playback"
+          >
+            <Play className="size-4.5 fill-current" aria-hidden="true" />
+            <span>{item.media_type === 'series' ? `Play S${season} E${episode}` : 'Play Now'}</span>
+            {hasDubs && selectedDubLabel && (
+              <span className="rounded-full bg-black/25 px-2 py-0.5 text-[10.5px] font-bold text-accent-contrast">
+                {cleanDubLabel(selectedDubLabel)}
+              </span>
+            )}
+            <span className="rounded-full bg-black/30 px-2 py-0.5 text-[11px] font-extrabold text-accent-contrast">
+              {activeQualityBadge}
+            </span>
+          </Link>
+
+          {/* Quality dropdown caret button */}
+          <button
+            type="button"
+            onClick={() => setPlayQualityMenuOpen((prev) => !prev)}
+            aria-expanded={playQualityMenuOpen}
+            className="inline-flex cursor-pointer items-center rounded-r-full border-l border-black/20 py-3.5 pr-4 pl-2.5 text-accent-contrast transition hover:bg-black/15"
+            title="Select playback quality (4K, 1080p, 720p, 480p, Auto)"
+          >
+            <ChevronDown
+              className={`size-4 transition-transform ${playQualityMenuOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+        </div>
+
+        {/* Quality selection popup */}
+        {playQualityMenuOpen && (
+          <div className="absolute top-full left-0 z-50 mt-2 w-72 rounded-2xl border border-white/15 bg-[#121218]/95 p-3.5 text-white shadow-2xl backdrop-blur-md animate-fade-in">
+            <div className="mb-2.5 flex items-center justify-between border-b border-white/10 px-1 pb-2">
+              <span className="text-[12px] font-bold tracking-wider text-white/80 uppercase">
+                Playback Quality
+              </span>
+              <button
+                type="button"
+                onClick={() => setPlayQualityMenuOpen(false)}
+                className="rounded p-1 text-white/50 hover:bg-white/10 hover:text-white"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+
+            <div className="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
+              {/* Option: Auto */}
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedQuality(null);
+                  setPlayQualityMenuOpen(false);
+                }}
+                className={`group flex w-full cursor-pointer items-center justify-between rounded-xl p-2.5 text-left transition ${
+                  selectedQuality === null
+                    ? 'bg-accent text-accent-contrast font-bold shadow-sm'
+                    : 'bg-white/[0.04] text-white/80 hover:bg-white/10 hover:text-white border border-white/[0.06]'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${
+                    selectedQuality === null ? 'bg-black/25 text-accent-contrast' : 'bg-accent/20 text-accent'
+                  }`}>
+                    Auto
+                  </span>
+                  <span className="text-[12.5px]">Best Available</span>
+                </div>
+                {selectedQuality === null && <Check className="size-4 stroke-[2.5]" />}
+              </button>
+
+              {/* Specific Qualities */}
+              {availableQualities.map((q) => {
+                const isSelected = selectedQuality === q.height;
+                return (
+                  <button
+                    key={q.height}
+                    type="button"
+                    onClick={() => {
+                      setSelectedQuality(q.height);
+                      setPlayQualityMenuOpen(false);
+                    }}
+                    className={`group flex w-full cursor-pointer items-center justify-between rounded-xl p-2.5 text-left transition ${
+                      isSelected
+                        ? 'bg-accent text-accent-contrast font-bold shadow-sm'
+                        : 'bg-white/[0.04] text-white/80 hover:bg-white/10 hover:text-white border border-white/[0.06]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded px-1.5 py-0.5 text-[11px] font-bold ${
+                        isSelected ? 'bg-black/25 text-accent-contrast' : 'bg-white/15 text-white'
+                      }`}>
+                        {q.badge}
+                      </span>
+                      <div>
+                        <span className="text-[12.5px] block">{q.label}</span>
+                        {q.size && (
+                          <span className={`text-[10.5px] ${isSelected ? 'text-accent-contrast/80' : 'text-white/45'}`}>
+                            {q.size}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {isSelected && <Check className="size-4 stroke-[2.5]" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Download button with Quality Selection */}
       <div className="relative">

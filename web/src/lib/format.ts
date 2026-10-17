@@ -267,3 +267,55 @@ export function extractEditionTags(rawTitle: string | null | undefined): string[
 
   return tags;
 }
+
+/**
+ * Normalises arbitrary resolution strings ("4K", "1080p", "720", "2160p", "480p", "360p")
+ * or filenames to a standard vertical pixel height (e.g. 2160, 1080, 720, 480, 360).
+ */
+export function parseQualityHeight(raw: string | null | undefined): number | null {
+  if (!raw) return null;
+  const s = raw.toLowerCase().trim();
+  if (s.includes('4k') || s.includes('2160') || s.includes('uhd')) return 2160;
+  if (s.includes('1080') || s.includes('fhd')) return 1080;
+  if (s.includes('720') || (s.includes('hd') && !s.includes('uhd') && !s.includes('fhd'))) return 720;
+  if (s.includes('480') || s.includes('sd')) return 480;
+  if (s.includes('360')) return 360;
+  const num = parseInt(s, 10);
+  return Number.isFinite(num) && num > 0 ? num : null;
+}
+
+/**
+ * Formats raw dub/language labels into beautiful, user-facing audio badges
+ * e.g. "Hindi" -> "Hindi Dub", "Original" -> "English (Original)", "en" -> "English"
+ */
+export function cleanDubLabel(raw: string | null | undefined): string {
+  if (!raw) return 'Original';
+  const clean = raw.trim();
+  const lower = clean.toLowerCase();
+
+  if (lower === 'original' || lower === 'orig') return 'Original';
+  if (lower === 'en' || lower === 'eng' || lower === 'english') return 'English';
+  if (lower.includes('hindi')) {
+    return lower.includes('dub') ? clean : `${clean} Dub`;
+  }
+  if (lower.includes('tamil')) {
+    return lower.includes('dub') ? clean : `${clean} Dub`;
+  }
+  if (lower.includes('telugu')) {
+    return lower.includes('dub') ? clean : `${clean} Dub`;
+  }
+  if (lower.includes('spanish') || lower === 'es' || lower === 'spa') {
+    return lower.includes('dub') ? clean : 'Spanish Dub';
+  }
+  if (lower.includes('french') || lower === 'fr' || lower === 'fra') {
+    return lower.includes('dub') ? clean : 'French Dub';
+  }
+  if (lower.includes('korean') || lower === 'ko' || lower === 'kor') {
+    return lower.includes('dub') ? clean : 'Korean Dub';
+  }
+  if (lower.includes('japanese') || lower === 'ja' || lower === 'jpn') {
+    return lower.includes('dub') ? clean : 'Japanese Dub';
+  }
+
+  return clean;
+}

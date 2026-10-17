@@ -20,6 +20,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api } from '@/lib/api';
+import { parseQualityHeight } from '@/lib/format';
 import { clearLocalProgress, saveLocalProgress } from '@/lib/playbackProgress';
 import type { PlaybackSessionResponse, PlaybackSubtitle, Release } from '@/types';
 
@@ -63,18 +64,50 @@ export interface PlaybackOptions {
  *
  * Exported because the codec check has to ask about *this* release before a
  * session exists, and answering that with `releases[0]` would check the wrong
- * one the moment a details page points at a specific `resource_id`.
+ * one the moment a details page points at a specific `resource_id` or quality.
  */
 export function pickRelease(
   releases: Release[] | undefined,
   resourceId: string | null | undefined,
   mirror: number | null | undefined,
+  targetQuality?: number | null | undefined,
 ): { release: Release; releaseIndex: number; mirrorIndex: number } | null | undefined {
   if (!releases || releases.length === 0) return undefined;
   const mirrorIndex = mirror ?? 0;
   if (resourceId) {
     const byId = releases.findIndex((r) => r.resource_id === resourceId);
     if (byId >= 0) return { release: releases[byId]!, releaseIndex: byId, mirrorIndex };
+  }
+
+  // If a target quality (e.g. 2160, 1080, 720, 480) was requested by the user:
+  if (targetQuality && targetQuality > 0) {
+    // 1. Exact match on quality or filename
+    const exactMatch = releases.findIndex((r) => {
+      if (!r.mirrors || r.mirrors.length === 0) return false;
+      const h = parseQualityHeight(r.quality) ?? parseQualityHeight(r.filename);
+      return h === targetQuality;
+    });
+    if (exactMatch >= 0) {
+      return { release: releases[exactMatch]!, releaseIndex: exactMatch, mirrorIndex };
+    }
+
+    // 2. Closest match
+    let bestIdx = -1;
+    let minDiff = Infinity;
+    releases.forEach((r, idx) => {
+      if (!r.mirrors || r.mirrors.length === 0) return;
+      const h = parseQualityHeight(r.quality) ?? parseQualityHeight(r.filename);
+      if (h) {
+        const diff = Math.abs(h - targetQuality);
+        if (diff < minDiff) {
+          minDiff = diff;
+          bestIdx = idx;
+        }
+      }
+    });
+    if (bestIdx >= 0) {
+      return { release: releases[bestIdx]!, releaseIndex: bestIdx, mirrorIndex };
+    }
   }
 
   const hevcSupported = isHevcSupported();
@@ -129,8 +162,8 @@ export function usePlayback({
   setupRef.current = setup;
 
   const chosen = useMemo(
-    () => pickRelease(releases, resourceId, mirror),
-    [releases, resourceId, mirror],
+    () => pickRelease(releases, resourceId, mirror, quality),
+    [releases, resourceId, mirror, quality],
   );
 
   useEffect(() => {
