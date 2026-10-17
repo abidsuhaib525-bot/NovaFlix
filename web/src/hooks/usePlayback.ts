@@ -20,6 +20,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { api } from '@/lib/api';
+import { clearLocalProgress, saveLocalProgress } from '@/lib/playbackProgress';
 import type { PlaybackSessionResponse, PlaybackSubtitle, Release } from '@/types';
 
 /** A session opened against the backend proxy, ready for a player. */
@@ -75,9 +76,24 @@ export function pickRelease(
     const byId = releases.findIndex((r) => r.resource_id === resourceId);
     if (byId >= 0) return { release: releases[byId]!, releaseIndex: byId, mirrorIndex };
   }
+
+  const hevcSupported = isHevcSupported();
+
+  // If the device does NOT support HEVC, prioritize an H.264 / AVC release first!
+  if (!hevcSupported) {
+    const avcIndex = releases.findIndex((r) => {
+      if (!r.mirrors || r.mirrors.length === 0) return false;
+      const c = (r.codec || '').toLowerCase();
+      return !c.includes('hevc') && !c.includes('265') && !c.includes('hvc') && !c.includes('hev');
+    });
+    if (avcIndex >= 0) {
+      return { release: releases[avcIndex]!, releaseIndex: avcIndex, mirrorIndex };
+    }
+  }
+
   // No explicit pick: the first release with a playable mirror. The provider
   // orders releases best-quality first, so "first" is the right default.
-  const first = releases.findIndex((r) => r.mirrors.length > 0);
+  const first = releases.findIndex((r) => r.mirrors && r.mirrors.length > 0);
   if (first < 0) return null;
   return { release: releases[first]!, releaseIndex: first, mirrorIndex };
 }
@@ -198,51 +214,79 @@ export function usePlayback({
 
 /**
  * HEVC codec strings worth probing, most capable last.
- *
- * Chromium rejects a bare `hev1` / `hvc1` as not a valid RFC 6381 string and
- * answers `false` for it on *every* machine -- including ones that decode HEVC
- * perfectly well. The first version of `browserSupportsCodec` probed exactly
- * that, so the gate blocked playback for the very users who had installed the
- * codec it tells them to install. Probe real profile strings instead.
  */
 const HEVC_PROBES = [
-  'video/mp4; codecs="hev1.1.6.L93.B0"', // Main: what MovieBox ships today
-  'video/mp4; codecs="hev1.2.4.L120.90"', // Main 10: for 10-bit encodes
+  'video/mp4; codecs="hev1.1.6.L93.B0"',
+  'video/mp4; codecs="hev1.2.4.L120.90"',
+  'video/mp4; codecs="hvc1.1.6.L93.B0"',
+  'video/mp4; codecs="hvc1.2.4.L120.90"',
+  'video/mp4; codecs="hevc"',
+  'video/mp4; codecs="hvc1"',
+  'video/mp4; codecs="hev1"',
 ];
 
 /**
- * True when this browser cannot decode the codec a release needs.
- *
- * MovieBox is HEVC-only today, and a browser without an HEVC decoder reports
- * `MediaSource.isTypeSupported('<full hev1 string>') === false`. Asking before
- * playback starts turns a silent black rectangle into a sentence the user can
- * act on.
+ * Robust detection of whether the current device supports HEVC/H.265.
+ */
+export function isHevcSupported(): boolean {
+  if (typeof window === 'undefined') return true;
+
+  // 1. Apple Ecosystem (iOS Safari, iPadOS, macOS Safari/WebKit):
+  // iPhones (iPhone 7 and up), iPads, and Macs natively support hardware HEVC.
+  const ua = window.navigator.userAgent;
+  const isApple =
+    /iPad|iPhone|iPod|Macintosh/.test(ua) ||
+    (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
+  if (isApple) return true;
+
+  // 2. Modern Android devices (Android 5.0+ / API 21+) have native hardware HEVC decoders
+  if (/Android/i.test(ua)) return true;
+
+  // 3. Probing HTMLMediaElement.canPlayType (supported across modern Chromium/Firefox with OS codecs)
+  if (typeof document !== 'undefined') {
+    try {
+      const v = document.createElement('video');
+      for (const p of HEVC_PROBES) {
+        const can = v.canPlayType(p);
+        if (can === 'probably' || can === 'maybe') return true;
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // 4. Probing MediaSource.isTypeSupported (Chromium MSE with hardware decode or OS codec)
+  if (typeof MediaSource !== 'undefined' && typeof MediaSource.isTypeSupported === 'function') {
+    for (const p of HEVC_PROBES) {
+      try {
+        if (MediaSource.isTypeSupported(p)) return true;
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * True when this browser can decode the codec a release needs.
  */
 export function browserSupportsCodec(release: Release | undefined): boolean {
   if (!release?.codec) return true;
-  if (typeof MediaSource === 'undefined') return false;
   const codec = release.codec.toLowerCase();
-  if (codec.includes('hevc') || codec.includes('265') || codec.includes('hvc') || codec.includes('hev')) {
-    // Any real HEVC decoder counts: a machine with only Main 10 support still
-    // deserves to try rather than be turned away at the door.
-    return HEVC_PROBES.some((type) => MediaSource.isTypeSupported(type));
+  const isHevc =
+    codec.includes('hevc') || codec.includes('265') || codec.includes('hvc') || codec.includes('hev');
+
+  if (isHevc) {
+    return isHevcSupported();
   }
-  // Anything else (h264, avc, unknown) is safe to attempt: h264 is universal,
-  // and an unknown label must not block playback on a guess.
   return true;
 }
 
 /**
- * Throttled `timeupdate` -> `/api/history/progress`.
- *
- * The home rail reads this; a save every two seconds is cheap for a
- * single-user localhost app and keeps the resume point honest even if the tab
- * is closed without unmounting.
- *
- * Returns the ref to put on the `<video>` element. Taking the consumer's own
- * ref instead of an internal one is the whole point: with two refs the hook's
- * effect ran against a ref nothing had attached, found `null`, and returned
- * early -- so progress was silently never saved.
+ * Throttled `timeupdate` -> localStorage + `/api/history/progress`.
+ * Automatically purges from localStorage when completed.
  */
 export function useProgressSaver(
   enabled: boolean,
@@ -258,9 +302,6 @@ export function useProgressSaver(
 ) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const lastSave = useRef(0);
-  // The caller builds `payload` inline, so it is a new object every render.
-  // Reading it through a ref keeps the listener stable instead of detaching and
-  // reattaching it on each render for a payload whose values never changed.
   const payloadRef = useRef(payload);
   payloadRef.current = payload;
 
@@ -273,48 +314,105 @@ export function useProgressSaver(
       const current = payloadRef.current;
       if (!current) return;
       const now = Date.now();
-      if (now - lastSave.current < 2000) return;
       if (video.duration <= 0 || Number.isNaN(video.duration)) return;
+
+      const isCompleted = video.duration > 0 && video.currentTime / video.duration > 0.95;
+
+      // Always update local storage
+      if (isCompleted) {
+        clearLocalProgress(current.provider, current.subject_id, current.season, current.episode);
+      } else {
+        saveLocalProgress(
+          current.provider,
+          current.subject_id,
+          current.season,
+          current.episode,
+          video.currentTime,
+          video.duration,
+        );
+      }
+
+      // Throttle backend network calls
+      if (now - lastSave.current < 2500) return;
       lastSave.current = now;
+
       void api.saveProgress({
         ...current,
         position: Math.floor(video.currentTime),
         duration: Math.floor(video.duration),
-        completed: video.duration > 0 && video.currentTime / video.duration > 0.95,
+        completed: isCompleted,
+      });
+    };
+
+    const onPause = () => {
+      const current = payloadRef.current;
+      if (!current || !video || video.duration <= 0) return;
+      saveLocalProgress(
+        current.provider,
+        current.subject_id,
+        current.season,
+        current.episode,
+        video.currentTime,
+        video.duration,
+      );
+    };
+
+    const onEnded = () => {
+      const current = payloadRef.current;
+      if (!current) return;
+      clearLocalProgress(current.provider, current.subject_id, current.season, current.episode);
+      void api.saveProgress({
+        ...current,
+        position: Math.floor(video.duration || 0),
+        duration: Math.floor(video.duration || 0),
+        completed: true,
       });
     };
 
     video.addEventListener('timeupdate', onTime);
-    return () => video.removeEventListener('timeupdate', onTime);
+    video.addEventListener('pause', onPause);
+    video.addEventListener('ended', onEnded);
+
+    return () => {
+      video.removeEventListener('timeupdate', onTime);
+      video.removeEventListener('pause', onPause);
+      video.removeEventListener('ended', onEnded);
+    };
   }, [enabled]);
 
   return videoRef;
 }
 
-/** Shaka error categories worth naming in the UI instead of a raw number. */
+/** Shaka error categories with user-friendly actionable guidance. */
 export function describeShakaError(error: unknown): string {
   const e = error as { category?: number; code?: number; message?: string } | null;
   if (!e || typeof e.category !== 'number') {
     return error instanceof Error ? error.message : 'Unknown playback error';
   }
-  // Category 1 = NETWORK, 2 = TEXT, 4 = MANIFEST, 8 = MEDIA in Shaka's enum.
+  // Category 1 = NETWORK, 2 = TEXT, 3 = MEDIA, 4 = MANIFEST, 8 = MEDIA
   if (e.category === 1) {
     if (e.code === 1001) {
-      return 'Stream host returned an HTTP error (1001). The source CDN or subtitle server temporarily rejected the request. Try switching quality or another source.';
+      return 'Stream source returned a temporary HTTP error (1001). Please try another mirror or quality.';
     }
-    return 'Network connection issue with the video stream. Check your internet or try another mirror.';
+    return 'Network connection issue with the video stream. Please check your internet or try another mirror.';
   }
   if (e.category === 2) {
     return 'Subtitle track could not be loaded or parsed from this host.';
   }
+  if (e.category === 3) {
+    if (e.code === 3016) {
+      return 'Media decoder error (3/3016). Your browser or hardware had trouble decoding this stream format. Please switch quality or try another mirror.';
+    }
+    return `Media stream decode error (${e.category}/${e.code}). Please try switching quality or source.`;
+  }
   if (e.category === 4 && e.code === 4032) {
-    return 'This stream uses a codec your browser cannot decode. Install the HEVC video codec from the Microsoft Store, then reload.';
+    return 'This stream requires a different video codec. Please switch to 1080p or 720p quality.';
   }
   if (e.category === 10) {
-    return 'Lost connection to the stream. Check that the MovieBox backend is still running.';
+    return 'Lost connection to the stream. Please check that the server is online and reload.';
   }
   if (e.category === 8) {
-    return 'The stream sent data this browser could not decode.';
+    return 'The stream sent data this browser could not decode. Please select an alternative quality.';
   }
-  return `Playback error ${e.category}/${e.code}`;
+  return `Playback issue (${e.category}/${e.code}). Please try selecting another quality or mirror.`;
 }

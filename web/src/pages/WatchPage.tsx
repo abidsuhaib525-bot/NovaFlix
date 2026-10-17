@@ -17,7 +17,6 @@
  *   the Shaka instance and hands it down as a ref.
  */
 
-import { AlertTriangle } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
@@ -33,12 +32,12 @@ import {
   useSubtitles,
 } from '@/hooks/useCatalog';
 import {
-  browserSupportsCodec,
   describeShakaError,
   pickRelease,
   usePlayback,
   useProgressSaver,
 } from '@/hooks/usePlayback';
+import { clearLocalProgress, getLocalProgress } from '@/lib/playbackProgress';
 import { cleanTitle, formatDuration } from '@/lib/format';
 import { api } from '@/lib/api';
 import { isProviderKind, paths, readIndex } from '@/lib/routes';
@@ -334,7 +333,6 @@ function PlayerStage({
     () => pickRelease(releases, resourceId, mirror),
     [releases, resourceId, mirror],
   );
-  const codecOk = useMemo(() => browserSupportsCodec(candidate?.release), [candidate]);
 
   const siblingIds = useMemo(
     () =>
@@ -375,14 +373,16 @@ function PlayerStage({
     quality,
     subtitle: null,
     subtitles: sessionSubtitles,
-    // Immediate playback start: creating session warms manifest & segments immediately.
-    enabled: codecOk,
+    enabled: true,
   });
 
-  // Where this episode was left off, read from the same cache the
-  // continue-watching rail fills.
+  // Where this episode was left off:
+  // Check localStorage first (instant zero-latency persistence), then fallback to backend history
   const history = useHistory();
   const resumeAt = useMemo(() => {
+    const local = getLocalProgress(provider, id, season, episode);
+    if (local >= 3) return local;
+
     const hit = history.data?.find(
       (h) =>
         h.provider === provider &&
@@ -392,8 +392,8 @@ function PlayerStage({
     );
     if (!hit || hit.completed) return 0;
     const seconds = hit.progress_seconds ?? 0;
-    if (seconds < 30) return 0;
-    if (hit.duration_seconds && hit.duration_seconds - seconds < 120) return 0;
+    if (seconds < 5) return 0;
+    if (hit.duration_seconds && hit.duration_seconds - seconds < 15) return 0;
     return seconds;
   }, [history.data, provider, id, season, episode]);
 
@@ -445,14 +445,6 @@ function PlayerStage({
     );
   }
 
-  if (!codecOk) {
-    return (
-      <div className="flex h-full w-full items-center justify-center bg-black p-6">
-        <CodecNotice />
-      </div>
-    );
-  }
-
   // `undefined` is "the session request is in flight", not "nothing works".
   if (setup === undefined) {
     return <StageFrame onBack={onBack} onRetry={() => window.location.reload()} />;
@@ -463,7 +455,7 @@ function PlayerStage({
       <div className="flex h-full w-full items-center justify-center bg-black p-6">
         <EmptyState
           title="Could not open a playback session"
-          hint="The backend could not start a session for this source. Check that the MovieBox backend is still running, then reload."
+          hint="The backend could not start a session for this source. Check that the streaming server is online, then reload."
           action={
             <div className="flex items-center gap-3">
               <button
@@ -654,6 +646,7 @@ function ShakaStage({
   const [reloadKey, setReloadKey] = useState(0);
   const [resumeLabel, setResumeLabel] = useState('');
   const didResume = useRef(false);
+  const hasAttemptedMediaRecovery = useRef(false);
   // The progress saver's ref is the canonical `<video>` handle: the player and
   // the DOM share it rather than this component keeping a second copy, which is
   // exactly the two-refs bug that silently disabled progress saving before.
@@ -704,24 +697,24 @@ function ShakaStage({
           console.warn('[UITextDisplayer fallback]', e);
         }
 
-        // Configure Shaka for ultra-smooth playback, deep buffering, and resilience against network jitter
+        // Configure Shaka for ultra-responsive seeking, zero buffer thrashing, and high network resilience
         instance.configure({
           streaming: {
-            rebufferingGoal: 2,
-            bufferingGoal: 60,
-            bufferBehind: 60,
-            segmentPrefetchLimit: 2,
-            stallEnabled: true,
-            stallThreshold: 1,
-            stallSkip: 0.1,
+            rebufferingGoal: 1.5,
+            bufferingGoal: 20,
+            bufferBehind: 30,
+            segmentPrefetchLimit: 1,
+            stallEnabled: false, // Prevents false stall triggers and infinite abort-loops when seeking
             jumpLargeGaps: true,
+            smallGapLimit: 1.5,
+            gapJumpTimerTime: 0.5,
             inaccurateManifestTolerance: 2,
             retryParameters: {
-              maxAttempts: 8,
-              baseDelay: 800,
-              backoffFactor: 1.4,
-              fuzzFactor: 0.3,
-              timeout: 20000,
+              maxAttempts: 6,
+              baseDelay: 600,
+              backoffFactor: 1.3,
+              fuzzFactor: 0.2,
+              timeout: 15000,
             },
           },
           manifest: {
@@ -730,11 +723,11 @@ function ShakaStage({
               autoCorrectDrift: true,
             },
             retryParameters: {
-              maxAttempts: 6,
-              baseDelay: 800,
-              backoffFactor: 1.4,
-              fuzzFactor: 0.3,
-              timeout: 20000,
+              maxAttempts: 5,
+              baseDelay: 600,
+              backoffFactor: 1.3,
+              fuzzFactor: 0.2,
+              timeout: 15000,
             },
           },
           abr: {
@@ -747,7 +740,7 @@ function ShakaStage({
         });
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        instance.addEventListener('error', (event: { detail?: any }) => {
+        instance.addEventListener('error', async (event: { detail?: any }) => {
           if (cancelled) return;
           const detail = event.detail;
           // In Shaka Player, severity 1 is RECOVERABLE (e.g. non-critical subtitle fetch failure).
@@ -767,16 +760,40 @@ function ShakaStage({
             }
           }
 
+          // If it's a media decode glitch (Category 3: MEDIA, e.g. error 3016 VIDEO_ERROR), attempt stream recovery once
+          if (detail && detail.category === 3 && !hasAttemptedMediaRecovery.current) {
+            hasAttemptedMediaRecovery.current = true;
+            console.warn('[Shaka Media Error 3/3016 - Attempting Stream Recovery at current position]', detail);
+            try {
+              const cur = video.currentTime;
+              await instance.load(manifestUrl, cur > 2 ? cur : undefined);
+              await video.play();
+              return;
+            } catch (recErr) {
+              console.warn('[Shaka 3016 recovery failed]', recErr);
+            }
+          }
+
           setStatus('error');
           setErrorText(describeShakaError(detail));
         });
 
         await instance.attach(video);
         if (cancelled) return;
-        await instance.load(manifestUrl);
+
+        // Pass resume position directly to instance.load so Shaka begins fetching at the exact timestamp!
+        const initialStart = resumeAt > 0 ? resumeAt : undefined;
+        await instance.load(manifestUrl, initialStart);
         if (cancelled) return;
 
         setStatus('playing');
+
+        if (resumeAt > 0 && !didResume.current) {
+          didResume.current = true;
+          setResumeLabel(`Resumed from ${formatDuration(resumeAt)}`);
+          setTimeout(() => setResumeLabel(''), 4500);
+        }
+
         video.muted = false;
         await video.play().catch(async () => {
           // If browser autoplay policy blocks unmuted audio, try muted play immediately
@@ -831,44 +848,15 @@ function ShakaStage({
     };
   }, [manifestUrl, videoRef, reloadKey]);
 
-  const [resumePromptVisible, setResumePromptVisible] = useState(false);
-
-  // If there's a saved progress point, pause and prompt the user to choose:
-  // Resume from where they left off OR Start Over from 0:00.
-  useEffect(() => {
-    if (didResume.current || status !== 'playing' || resumeAt <= 0) return;
-    const video = videoRef.current;
-    if (!video) return;
-    didResume.current = true;
-    try {
-      video.pause();
-    } catch {
-      /* ignore */
-    }
-    setResumePromptVisible(true);
-  }, [status, resumeAt, videoRef]);
-
-  const handleResume = () => {
-    setResumePromptVisible(false);
-    const video = videoRef.current;
-    if (!video) return;
-    try {
-      video.currentTime = resumeAt;
-      setResumeLabel(`Resumed at ${formatDuration(resumeAt)}`);
-      void video.play();
-    } catch {
-      /* ignore */
-    }
-    const timer = setTimeout(() => setResumeLabel(''), 5000);
-    return () => clearTimeout(timer);
-  };
-
   const handleStartOver = () => {
-    setResumePromptVisible(false);
     const video = videoRef.current;
     if (!video) return;
     try {
       video.currentTime = 0;
+      if (progressPayload) {
+        clearLocalProgress(progressPayload.provider, progressPayload.subject_id, currentSeason, currentEpisode);
+      }
+      setResumeLabel('');
       void video.play();
     } catch {
       /* ignore */
@@ -911,15 +899,11 @@ function ShakaStage({
         autoplayNext={autoplayNext}
         onPlayNext={onPlayNext}
         resumeLabel={resumeLabel || null}
-        resumePrompt={
-          resumePromptVisible
-            ? {
-                seconds: resumeAt,
-                onResume: handleResume,
-                onStartOver: handleStartOver,
-              }
-            : null
-        }
+        resumePrompt={{
+          seconds: resumeAt,
+          onResume: () => {},
+          onStartOver: handleStartOver,
+        }}
         dubs={dubs}
         currentDubId={currentDubId}
         onSelectDub={onSelectDub}
@@ -929,40 +913,12 @@ function ShakaStage({
   );
 }
 
-/** The HEVC dead end, turned into something the user can fix. */
-function CodecNotice() {
-  return (
-    <div className="surface flex min-h-[420px] flex-col items-center justify-center gap-4 rounded-card px-6 text-center">
-      <AlertTriangle className="size-10 text-warning" aria-hidden="true" />
-      <div className="max-w-lg space-y-2">
-        <h2 className="text-[16px] font-semibold text-fg-default">
-          This stream needs the HEVC codec
-        </h2>
-        <p className="text-[13.5px] leading-relaxed text-fg-muted">
-          MovieBox serves HEVC video, and this browser has no HEVC decoder. Install the free{' '}
-          <span className="text-fg-default">
-            HEVC Video Extensions from Device Manufacturer
-          </span>{' '}
-          from the Microsoft Store, then reload this page. Chrome and Edge both use the Windows
-          codec once it is installed.
-        </p>
-      </div>
-      <Link
-        to={paths.home()}
-        className="rounded-full bg-accent px-5 py-2 text-[12.5px] font-semibold text-accent-contrast transition hover:bg-accent-hover"
-      >
-        Back to home
-      </Link>
-    </div>
-  );
-}
-
 function Unknown() {
   return (
     <div className="mx-auto max-w-[1600px] px-4 pt-4 sm:px-6 lg:px-8">
       <EmptyState
         title="Unknown provider"
-        hint="This link names a source MovieBox does not recognise."
+        hint="This link names a source NovaFlixZone does not recognise."
         action={
           <Link
             to={paths.home()}

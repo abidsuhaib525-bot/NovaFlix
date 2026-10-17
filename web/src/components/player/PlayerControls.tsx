@@ -77,6 +77,7 @@ function ScrubBar({ controller }: { controller: PlayerController }) {
   const { currentTime, duration, buffered } = controller.state;
   const barRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [dragFraction, setDragFraction] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
 
   const fractionAt = (clientX: number) => {
@@ -89,8 +90,8 @@ function ScrubBar({ controller }: { controller: PlayerController }) {
     if (duration > 0) controller.seekTo(fraction * duration);
   };
 
-  const played = duration > 0 ? clamp(currentTime / duration, 0, 1) : 0;
-  const marker = hover ?? (dragging ? currentTime : null);
+  const played = dragFraction ?? (duration > 0 ? clamp(currentTime / duration, 0, 1) : 0);
+  const marker = hover ?? (dragging && dragFraction !== null ? dragFraction * duration : null);
 
   return (
     <div
@@ -108,17 +109,23 @@ function ScrubBar({ controller }: { controller: PlayerController }) {
         event.currentTarget.setPointerCapture(event.pointerId);
         setDragging(true);
         const fraction = fractionAt(event.clientX);
+        setDragFraction(fraction);
         setHover(fraction * duration);
-        seekToFraction(fraction);
       }}
       onPointerMove={(event) => {
         const fraction = fractionAt(event.clientX);
         setHover(fraction * duration);
-        if (dragging) seekToFraction(fraction);
+        if (dragging) {
+          setDragFraction(fraction);
+        }
       }}
       onPointerUp={(event) => {
-        if (dragging) seekToFraction(fractionAt(event.clientX));
+        if (dragging) {
+          const fraction = fractionAt(event.clientX);
+          seekToFraction(fraction);
+        }
         setDragging(false);
+        setDragFraction(null);
         event.currentTarget.releasePointerCapture?.(event.pointerId);
       }}
       onPointerLeave={() => {

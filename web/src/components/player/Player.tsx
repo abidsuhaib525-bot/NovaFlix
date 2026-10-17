@@ -17,7 +17,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 
 import type { AudioTrackOption, Release, Season } from '@/types';
-import { formatDuration } from '@/lib/format';
 
 import { EpisodeDrawer } from './EpisodeDrawer';
 import { PlayerControls } from './PlayerControls';
@@ -578,39 +577,23 @@ export function Player({
         title={title}
       />
 
-      {/* Resume playback prompt dialog */}
-      {status === 'playing' && resumePrompt && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center bg-black/75 px-4 backdrop-blur-sm animate-fade-in" data-player-chrome>
-          <div className="w-full max-w-sm rounded-2xl border border-white/15 bg-[#121218]/95 p-6 text-center text-white shadow-2xl">
-            <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-accent/20 text-accent">
-              <Play className="size-6 fill-current translate-x-0.5" />
-            </div>
-            <h3 className="text-lg font-bold tracking-tight text-white">Continue Watching?</h3>
-            <p className="mt-1 text-sm text-white/70">
-              You were watching this at{' '}
-              <span className="font-semibold text-accent">{formatDuration(resumePrompt.seconds)}</span>.
-            </p>
-            <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => {
-                  resumePrompt.onResume();
-                }}
-                className="flex-1 cursor-pointer rounded-full bg-accent py-2.5 px-4 text-sm font-semibold text-accent-contrast shadow-md transition hover:bg-accent-hover"
-              >
-                Resume
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  resumePrompt.onStartOver();
-                }}
-                className="flex-1 cursor-pointer rounded-full border border-white/20 bg-white/10 py-2.5 px-4 text-sm font-semibold text-white transition hover:bg-white/20"
-              >
-                Start Over
-              </button>
-            </div>
-          </div>
+      {/* Non-intrusive Resume Notification Toast */}
+      {status === 'playing' && resumeLabel && (
+        <div
+          className="pointer-events-auto absolute bottom-20 left-4 z-30 flex items-center gap-2.5 rounded-full border border-white/20 bg-black/85 px-4 py-2 text-[12.5px] font-semibold text-white shadow-2xl backdrop-blur-md animate-fade-in sm:left-6"
+          data-player-chrome
+        >
+          <span className="size-2 rounded-full bg-accent animate-pulse" />
+          <span>{resumeLabel}</span>
+          {resumePrompt?.onStartOver && (
+            <button
+              type="button"
+              onClick={resumePrompt.onStartOver}
+              className="ml-1 cursor-pointer rounded-full bg-white/15 px-2.5 py-0.5 text-[11px] font-semibold text-white/90 hover:bg-white/25 hover:text-white transition"
+            >
+              Start Over
+            </button>
+          )}
         </div>
       )}
 
